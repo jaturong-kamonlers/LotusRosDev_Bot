@@ -1,0 +1,20 @@
+# PlatformIO build outputs
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# VS Code
+.vscode/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# Secrets — ห้าม commit ไฟล์ที่มี password/IP จริง
+# (myrobot_config.h ปลอดภัยแล้วเพราะใช้ placeholder)
+
+# OS
+.DS_Store
+Thumbs.db
