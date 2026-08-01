@@ -39,6 +39,9 @@ private:
         ESP32Encoder encoder_;
 	unsigned long prev_update_time_;
         int64_t prev_encoder_ticks_;
+	int pin1_ = -1;
+	int pin2_ = -1;
+	bool begun_ = false;
 public:
 	Encoder(int pin1, int pin2, int counts_per_rev, bool invert = false) {
 		int temp_pin = pin1;
@@ -49,11 +52,23 @@ public:
 			pin2 = temp_pin;
 		}
 		counts_per_rev_ = counts_per_rev;
+		pin1_ = pin1;
+		pin2_ = pin2;
+		// ไม่ attach PCNT ที่นี่! ถ้า attach ใน global constructor (รันก่อน setup)
+		// แล้ว micro-ROS init ทีหลังจะ clobber PCNT → encoder หยุดนับใน ROS2 mode
+		// (odom=0). ต้องเรียก begin() หลัง micro-ROS สร้าง entities เสร็จ
+		// หรือใน calib mode ก่อนใช้งาน. ยืนยัน 2026-07-04 ด้วย calib-mode A/B test.
+	}
+	// attach PCNT — เรียกครั้งเดียวหลัง micro-ROS init (ROS2) หรือก่อนใช้งาน (calib)
+	void begin() {
+		if (counts_per_rev_ < 0 || begun_) return;
 		ESP32Encoder::useInternalWeakPullResistors = UP;
-		encoder_.attachSingleEdge(pin1, pin2);
+		encoder_.attachSingleEdge(pin1_, pin2_);
+		encoder_.clearCount();
+		begun_ = true;
 	}
 	float getRPM() {
-	        if (counts_per_rev_ < 0) return 0.0;
+	        if (counts_per_rev_ < 0 || !begun_) return 0.0;
 		int64_t encoder_ticks = encoder_.getCount();
 		//this function calculates the motor's RPM based on encoder ticks and delta time
 		unsigned long current_time = micros();
@@ -82,11 +97,11 @@ public:
 		return (((double) delta_ticks / counts_per_rev_) / dtm);
 	}
 	inline int32_t read() {
-	        if (counts_per_rev_ < 0) return 0;
+	        if (counts_per_rev_ < 0 || !begun_) return 0;
 		return  encoder_.getCount();
 	}
         inline void write(int32_t p) {
-	        if (counts_per_rev_ < 0) return;
+	        if (counts_per_rev_ < 0 || !begun_) return;
 	        encoder_.setCount(p);
 	}
 };

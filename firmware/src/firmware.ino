@@ -87,7 +87,7 @@ static inline void set_microros_net_transports(IPAddress agent_ip, uint16_t agen
 #endif
 
 #ifndef BAUDRATE
-#define BAUDRATE 115200
+#define BAUDRATE 115200   // USB-serial ตัวนี้นิ่งเฉพาะ 115200 (auto-connect); 460800/921600 handshake ไม่ติด ต้อง reset ทุกที. แก้ serial ตันด้วยการลด publish rate แทน (publishData 5Hz + readSensors 5Hz) — 2026-07-04
 #endif
 #ifndef NODE_NAME
 #define NODE_NAME "linorobot_base_node"
@@ -300,9 +300,9 @@ void setup()
     display.drawString(0, 10, "Wifi connecting...");
     display.display();
 
-    WiFi.setSleep(false);
-    initWifis();
-    initOta();
+    WiFi.mode(WIFI_OFF);   // TEST: ปิด WiFi radio (serial transport ไม่ใช้ WiFi; สงสัยกวน PCNT encoder)
+    // initWifis();   // no-op อยู่แล้ว (WIFI_AP_LIST undefined)
+    // initOta();
 
     // ── Mag ──────────────────────────────────────────────────
     mag.init();
@@ -399,6 +399,9 @@ void setup()
         display.display();
         calib_beepEnterCalib();   // โด เร มี
         delay(500);
+        // attach encoder PCNT สำหรับ calib mode (ไม่มี micro-ROS มา clobber)
+        motor1_encoder.begin();
+        motor2_encoder.begin();
         // ไม่ init micro-ROS — Serial ยังว่างสำหรับ debug
         return;   // ออกจาก setup() ไปที่ loop()
     }
@@ -456,6 +459,11 @@ void loop()
             if (state == WAITING_AGENT) {
                 destroyEntities();
             } else if (state == AGENT_CONNECTED) {
+                // attach encoder PCNT หลัง micro-ROS สร้าง entities เสร็จ
+                // (ต้องทำที่นี่ ไม่ใช่ใน constructor — ไม่งั้น micro-ROS init จะ clobber
+                //  PCNT ทำให้ encoder หยุดนับ odom=0. ยืนยัน 2026-07-04 calib A/B test)
+                motor1_encoder.begin();
+                motor2_encoder.begin();
                 updateDisplay();
             }
             break;
@@ -483,7 +491,7 @@ void loop()
     }
 
     // ── Sensor reads (non-blocking, throttled) ───────────────
-    EXECUTE_EVERY_N_MS(50,  readSensors());
+    EXECUTE_EVERY_N_MS(200, readSensors());   // 20Hz→5Hz: ir/pot/button พับ 20Hz กิน ~3KB/s ทำ serial 115200 ตัน — 2026-07-04
     EXECUTE_EVERY_N_MS(200, updateDisplaySensors());
 
     // ── Buzzer stop check ────────────────────────────────────
@@ -506,8 +514,11 @@ void controlCallback(rcl_timer_t * timer, int64_t last_call_time)
 {
     RCLC_UNUSED(last_call_time);
     if (timer != NULL) {
-        moveBase();
-        publishData();
+        moveBase();   // PID/control ทำทุกรอบ 50Hz (คุมมอเตอร์ลื่น)
+        // throttle publishData เหลือ ~12.5Hz (ทุกรอบที่ 4) — serial 115200 พับ odom+imu+mag
+        // ทุก 20ms(50Hz) จะตัน (~36KB/s > 11.5KB/s) → cmd_vel inbound โดนอด มอเตอร์หยุด. 2026-07-04
+        static uint8_t pub_div = 0;
+        if (++pub_div >= 10) { pub_div = 0; publishData(); }   // ~5Hz (50Hz/10) — ลด serial 115200 ไม่ให้ตัน
     }
 }
 
@@ -779,34 +790,34 @@ bool createEntities()
 #endif
 
     // ── Subscribers ──────────────────────────────────────────
-    RCCHECK(rclc_subscription_init_default(
+    RCCHECK(rclc_subscription_init_best_effort(   // best_effort: cmd_vel reliable stream เต็ม window แล้ว flow-control หยุดส่งที่ ~7วิ (มอเตอร์หยุด) — best_effort ไม่มี ack/window เลยไม่ wedge; sub นี้ยังรับ reliable pub ได้ 2026-07-04
         &twist_subscriber, &node,
         ROSIDL_GET_MSG_TYPE_SUPPORT(geometry_msgs, msg, Twist),
         TOPIC_PREFIX "cmd_vel"));
 
 #ifdef USE_IR_SENSORS
-    RCCHECK(rclc_subscription_init_default(
+    RCCHECK(rclc_subscription_init_best_effort(   // best_effort: cmd_vel reliable stream เต็ม window แล้ว flow-control หยุดส่งที่ ~7วิ (มอเตอร์หยุด) — best_effort ไม่มี ack/window เลยไม่ wedge; sub นี้ยังรับ reliable pub ได้ 2026-07-04
         &ir_config_subscriber, &node,
         ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32),
         TOPIC_PREFIX "ir/config"));
 #endif
 
 #ifdef USE_SERVO
-    RCCHECK(rclc_subscription_init_default(
+    RCCHECK(rclc_subscription_init_best_effort(   // best_effort: cmd_vel reliable stream เต็ม window แล้ว flow-control หยุดส่งที่ ~7วิ (มอเตอร์หยุด) — best_effort ไม่มี ack/window เลยไม่ wedge; sub นี้ยังรับ reliable pub ได้ 2026-07-04
         &servo_subscriber, &node,
         ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
         TOPIC_PREFIX "servo/cmd"));
 #endif
 
 #ifdef USE_BUZZER
-    RCCHECK(rclc_subscription_init_default(
+    RCCHECK(rclc_subscription_init_best_effort(   // best_effort: cmd_vel reliable stream เต็ม window แล้ว flow-control หยุดส่งที่ ~7วิ (มอเตอร์หยุด) — best_effort ไม่มี ack/window เลยไม่ wedge; sub นี้ยังรับ reliable pub ได้ 2026-07-04
         &buzzer_subscriber, &node,
         ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Float32MultiArray),
         TOPIC_PREFIX "buzzer/play"));
 #endif
 
     // ── LED subscriber ───────────────────────────────────────
-    RCCHECK(rclc_subscription_init_default(
+    RCCHECK(rclc_subscription_init_best_effort(   // best_effort: cmd_vel reliable stream เต็ม window แล้ว flow-control หยุดส่งที่ ~7วิ (มอเตอร์หยุด) — best_effort ไม่มี ack/window เลยไม่ wedge; sub นี้ยังรับ reliable pub ได้ 2026-07-04
         &led_subscriber, &node,
         ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Bool),
         TOPIC_PREFIX "led/state"));
@@ -985,9 +996,12 @@ void publishData()
     mag_msg.header.stamp.sec   = ts.tv_sec;
     mag_msg.header.stamp.nanosec  = ts.tv_nsec;
 
+    // พับแค่ imu + odom (จำเป็นสำหรับ ekf/RViz). ตัด mag ออก — serial 115200 ตัน
+    // ทำให้ cmd_vel inbound โดนอด มอเตอร์หยุดที่ ~3 วิ (2026-07-04). mag ยังอ่านไว้
+    // ใช้คำนวณ imu.orientation อยู่ แค่ไม่ publish topic.
     RCSOFTCHECK(rcl_publish(&imu_publisher,  &imu_msg,  NULL));
-    RCSOFTCHECK(rcl_publish(&mag_publisher,  &mag_msg,  NULL));
     RCSOFTCHECK(rcl_publish(&odom_publisher, &odom_msg, NULL));
+    // (ลบ debug encoder→/pot/raw ออกแล้ว — ยืนยัน encoder ทำงานปกติ 2026-07-04)
 }
 
 // ════════════════════════════════════════════════════════════════

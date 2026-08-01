@@ -69,8 +69,8 @@
 //  ได้จากการ Calibrate ด้วย calibration/src/firmware.ino Menu 2 หรือ 3
 //  ค่าเริ่มต้นนี้วัดจากหุ่นจริงแล้ว
 // ─────────────────────────────────────────────────────────────────────────────
-#define COUNTS_PER_REV1   997   // ล้อซ้าย (M1) — วัดจาก Sample CPR
-#define COUNTS_PER_REV2   979   // ล้อขวา (M2) — วัดจาก Sample CPR
+#define COUNTS_PER_REV1   958   // ล้อซ้าย (M1) — มอเตอร์ใหม่ CPR x5 avg=958 (2026-07-17)
+#define COUNTS_PER_REV2   925   // ล้อขวา (M2) — มอเตอร์ใหม่ CPR x5 avg=925 (2026-07-17)
 #define COUNTS_PER_REV3   240   // ไม่ใช้ (สำรอง)
 #define COUNTS_PER_REV4   240   // ไม่ใช้ (สำรอง)
 
@@ -153,9 +153,9 @@
 //  Servo — ควบคุม 3 ตัวผ่าน ESP32Servo library
 //  รับคำสั่งจาก /servo/cmd [s1_deg, s2_deg, s3_deg] ช่วง 0–180 องศา
 // ─────────────────────────────────────────────────────────────────────────────
-#define USE_SERVO
-#define SERVO1_PIN  32   // GPIO32 — Servo ตัวที่ 1
-#define SERVO2_PIN  33   // GPIO33 — Servo ตัวที่ 2
+#define USE_SERVO   // เปิด 2026-07-16: gripper 2 servo (GPIO32=หนีบ, GPIO33=ยก). เทส encoder หลัง flash!
+#define SERVO1_PIN  32   // GPIO32 — Servo ตัวหนีบ (grip open/close)
+#define SERVO2_PIN  33   // GPIO33 — Servo ตัวยก (lift up/down)
 #define SERVO3_PIN   5   // ⚠️ GPIO5 — Servo ตัวที่ 3 (strapping pin — เตือนตอน boot)
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -196,8 +196,10 @@
 //  WiFi Access Point — ใช้เมื่อ USE_WIFI_TRANSPORT เปิด
 //  ⚠️  อย่า commit password จริงขึ้น GitHub
 // ─────────────────────────────────────────────────────────────────────────────
+#ifdef USE_WIFI_TRANSPORT   // define เฉพาะโหมด WiFi ไม่งั้น initWifis() จะ block ตอนใช้ serial
 #define WIFI_AP_LIST  {{"YOUR_SSID", "YOUR_PASSWORD"}, {NULL}}
 #define WIFI_MONITOR  2   // ตรวจสัญญาณ WiFi ทุก N วินาที
+#endif
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  OTA Update — อัปเดต firmware ผ่าน WiFi (ไม่ต้องต่อสาย USB)
