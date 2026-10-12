@@ -9,14 +9,14 @@ from std_msgs.msg import Bool, Float32MultiArray
 
 rclpy.init()
 node = rclpy.create_node('example_button_beep')
-led = node.create_publisher(Bool, '/led/state', 10)
-buzzer = node.create_publisher(Float32MultiArray, '/buzzer/play', 10)
+led = node.create_publisher(Bool, '/led/state', 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
+buzzer = node.create_publisher(Float32MultiArray, '/buzzer/play', 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
 
 button = None                          # ค่าปุ่มล่าสุด
 def on_button(msg):
     global button
     button = msg.data
-node.create_subscription(Bool, '/button/state', on_button, 10)
+node.create_subscription(Bool, '/button/state', on_button, 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
 
 last = None                            # ค่าปุ่มรอบก่อน
 count = 0                              # จำนวนครั้งที่กด
@@ -30,8 +30,8 @@ try:
         led.publish(Bool(data=button))                # LED ตามปุ่ม: กด = ติด · ปล่อย = ดับ
         if button:                                    # เฉพาะตอนกด
             count += 1
-            freq = 600.0 + 100.0 * (count % 8)
-            buzzer.publish(Float32MultiArray(data=[freq, 120.0]))
+            freq = 600.0 + 100.0 * (count % 8)   # ความถี่ 600–1300 Hz ไล่ขึ้นทีละ 100 Hz · วนกลับทุก 8 ครั้งที่กด
+            buzzer.publish(Float32MultiArray(data=[freq, 120.0]))   # [ความถี่ Hz, ความยาว 120 ms]
             print('กดครั้งที่', count, '→ บี๊บ', int(freq), 'Hz')
 except KeyboardInterrupt:
     pass

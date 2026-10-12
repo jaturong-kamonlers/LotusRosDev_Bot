@@ -26,11 +26,11 @@ class Sensors(Node):
         self.v = {'button': None, 'ir': None, 'pot': None, 'odom': None, 'gyro_z': None}
         self.n = {k: 0 for k in self.v}                       # นับจำนวนข้อความที่ได้ในแต่ละวินาที
         # ช่องรับ 5 ช่อง — lambda m: … คือฟังก์ชันสั้น ๆ ที่รับข้อความ m แล้วเก็บค่าที่ต้องการ
-        self.create_subscription(Bool, '/button/state', lambda m: self.got('button', m.data), 10)
-        self.create_subscription(Float32MultiArray, '/ir/raw', lambda m: self.got('ir', list(m.data)), 10)
-        self.create_subscription(Float32MultiArray, '/pot/raw', lambda m: self.got('pot', list(m.data)), 10)
-        self.create_subscription(Odometry, '/odom/unfiltered', self.on_odom, 10)
-        self.create_subscription(Imu, '/imu/data', lambda m: self.got('gyro_z', m.angular_velocity.z), 10)
+        self.create_subscription(Bool, '/button/state', lambda m: self.got('button', m.data), 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
+        self.create_subscription(Float32MultiArray, '/ir/raw', lambda m: self.got('ir', list(m.data)), 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
+        self.create_subscription(Float32MultiArray, '/pot/raw', lambda m: self.got('pot', list(m.data)), 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
+        self.create_subscription(Odometry, '/odom/unfiltered', self.on_odom, 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
+        self.create_subscription(Imu, '/imu/data', lambda m: self.got('gyro_z', m.angular_velocity.z), 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
         self.create_timer(1.0, self.report)                   # สรุปผลทุก 1 วินาที
 
     def got(self, key, value):

@@ -22,7 +22,7 @@ class Buzzer(Node):
 
     def __init__(self):
         super().__init__('example_buzzer')
-        self.pub = self.create_publisher(Float32MultiArray, '/buzzer/play', 10)
+        self.pub = self.create_publisher(Float32MultiArray, '/buzzer/play', 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
 
     def beep(self, freq_hz: float, dur_ms: float):
         """เล่นเสียง 1 ครั้ง: freq_hz = ความถี่ (สูง = แหลม) · dur_ms = ความยาวเป็นมิลลิวินาที

@@ -23,7 +23,7 @@ button = None                                            # ค่าปุ่ม
 def on_button(msg):
     global button                                        # global = แก้ตัวแปร button ด้านนอกฟังก์ชัน
     button = msg.data                                    # True = กด · False = ปล่อย
-node.create_subscription(Bool, '/button/state', on_button, 10)
+node.create_subscription(Bool, '/button/state', on_button, 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
 
 # ── ขั้นที่ 4: loop หลัก (เหมือน loop() ของ Arduino) ──────────────
 time.sleep(1.0)                                          # รอ discovery

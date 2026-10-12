@@ -22,14 +22,14 @@ except (OSError, ValueError):
 
 rclpy.init()
 node = rclpy.create_node('example_servo')
-servo = node.create_publisher(Float32MultiArray, '/servo/cmd', 10)
+servo = node.create_publisher(Float32MultiArray, '/servo/cmd', 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
 time.sleep(1.0)
 
 def move(angles):
     """ส่งมุม 3 ค่า (ตัดให้อยู่ 0–180 ก่อน)"""
     a = []
     for x in angles:
-        a.append(max(0.0, min(180.0, float(x))))
+        a.append(max(0.0, min(180.0, float(x))))   # ตัดมุมให้อยู่ 0–180° (ช่วงที่ servo หมุนได้)
     servo.publish(Float32MultiArray(data=a))
     print('servo →', a)
 
@@ -41,11 +41,11 @@ if args[0] == 'demo':
         time.sleep(1.0)
 elif args[0] in presets:
     move(presets[args[0]])
-elif len(args) == 3:
+elif len(args) == 3:   # พิมพ์มุมมา 3 ค่า = [s1 หนีบ, s2 ยก, s3]
     move(args)
 else:
     print('ท่าที่มี:', ', '.join(presets), '  หรือใส่มุม 3 ค่า เช่น 60 120 90')
-time.sleep(0.3)
+time.sleep(0.3)   # รอ 0.3 วิ ให้ข้อความถึงบอร์ดก่อนปิดโปรแกรม
 
 node.destroy_node()
 rclpy.shutdown()

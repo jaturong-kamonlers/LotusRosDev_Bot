@@ -12,12 +12,12 @@ import rclpy
 from geometry_msgs.msg import Twist
 
 MAX_LIN, MAX_ANG = 0.25, 1.2                             # เพดานความปลอดภัย
-speed = float(sys.argv[1]) if len(sys.argv) > 1 else 0.10
-secs = float(sys.argv[2]) if len(sys.argv) > 2 else 2.0
+speed = float(sys.argv[1]) if len(sys.argv) > 1 else 0.10   # ความเร็วเดินหน้าเริ่มต้น 0.10 m/s (ช้า · ปลอดภัย) ถ้าไม่ใส่ค่าต่อท้าย
+secs = float(sys.argv[2]) if len(sys.argv) > 2 else 2.0   # เวลาแต่ละช่วงเริ่มต้น 2.0 วินาที ถ้าไม่ใส่ค่าต่อท้าย
 
 rclpy.init()
 node = rclpy.create_node('example_motor_drive')
-cmd = node.create_publisher(Twist, '/cmd_vel', 10)
+cmd = node.create_publisher(Twist, '/cmd_vel', 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
 time.sleep(1.0)
 
 def drive(vx, wz, seconds):
@@ -28,13 +28,13 @@ def drive(vx, wz, seconds):
     end = time.time() + seconds
     while time.time() < end:
         cmd.publish(t)
-        time.sleep(0.05)
+        time.sleep(0.05)   # 0.05 วิ ระหว่างคำสั่ง (= 20 ครั้ง/วินาที · เฟิร์มแวร์หยุดล้อถ้าเงียบเกิน 200 ms)
 
 def stop():
     """ส่งความเร็ว 0 ซ้ำ 10 ครั้ง ให้แน่ใจว่าล้อหยุด"""
-    for i in range(10):
+    for i in range(10):   # 10 ครั้ง × 0.05 วิ = 0.5 วินาที
         cmd.publish(Twist())                             # Twist() เปล่า = ทุกค่าเป็น 0
-        time.sleep(0.05)
+        time.sleep(0.05)   # 0.05 วิ ระหว่างคำสั่ง (= 20 ครั้ง/วินาที · เฟิร์มแวร์หยุดล้อถ้าเงียบเกิน 200 ms)
 
 # ── ตรวจความปลอดภัยก่อนขยับ ─────────────────────────────────────
 if node.count_publishers('/cmd_vel') > 1:                # มีโปรแกรมอื่นส่งล้ออยู่ → คำสั่งจะตีกัน
@@ -44,9 +44,9 @@ elif input('⚠️ หุ่นจะเคลื่อนที่ — มี�
         print('เดินหน้า', speed, 'm/s', secs, 'วิ')
         drive(speed, 0.0, secs)
         stop()
-        time.sleep(0.5)
+        time.sleep(0.5)   # พัก 0.5 วิ ระหว่างเดินหน้ากับหมุน
         print('หมุนซ้าย 0.6 rad/s', secs, 'วิ')
-        drive(0.0, 0.6, secs)
+        drive(0.0, 0.6, secs)   # vx 0 m/s · wz 0.6 rad/s (≈34°/วินาที) = หมุนซ้ายอยู่กับที่
     except KeyboardInterrupt:
         print('หยุด (Ctrl+C)')
     stop()                                               # ไม่ว่าจบแบบไหน ต้องหยุดล้อ

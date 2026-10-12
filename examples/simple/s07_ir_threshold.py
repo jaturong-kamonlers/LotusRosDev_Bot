@@ -9,26 +9,26 @@ import sys, time
 import rclpy
 from std_msgs.msg import Float32, Float32MultiArray
 
-thr = float(sys.argv[1]) if len(sys.argv) > 1 else 2.0
+thr = float(sys.argv[1]) if len(sys.argv) > 1 else 2.0   # threshold เริ่มต้น 2.0 V: แรงดัน IR สูงกว่านี้ = เจอวัตถุ
 
 rclpy.init()
 node = rclpy.create_node('example_ir_threshold')
-config = node.create_publisher(Float32, '/ir/config', 10)
+config = node.create_publisher(Float32, '/ir/config', 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
 
 ir = None                                        # ค่า IR ล่าสุด
 def on_ir(msg):
     global ir
     ir = list(msg.data)
-node.create_subscription(Float32MultiArray, '/ir/raw', on_ir, 10)
+node.create_subscription(Float32MultiArray, '/ir/raw', on_ir, 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
 
 time.sleep(1.0)
 next_config = 0.0                                # เวลาที่ต้องส่งค่าตั้งครั้งถัดไป (0 = ส่งทันที)
 try:
     while True:
-        rclpy.spin_once(node, timeout_sec=0.05)
+        rclpy.spin_once(node, timeout_sec=0.05)   # รอข้อความเข้าไม่เกิน 0.05 วิ แล้ววนรอบใหม่ (≈20 รอบ/วินาที)
         if time.time() >= next_config:           # ส่งค่าตั้งซ้ำทุก 2 วิ (เผื่อบอร์ดเพิ่งรีเซ็ต)
             config.publish(Float32(data=thr))
-            next_config = time.time() + 2.0
+            next_config = time.time() + 2.0   # ครั้งถัดไปอีก 2 วินาที
         if ir is not None:                       # มีค่าใหม่ → ตัดสินแล้วพิมพ์
             left = 'เจอ' if ir[0] > thr else '—'
             right = 'เจอ' if ir[1] > thr else '—'

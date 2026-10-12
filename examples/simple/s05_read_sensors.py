@@ -37,17 +37,17 @@ def on_odom(msg):
 def on_imu(msg):
     global gyro_z; gyro_z = msg.angular_velocity.z
 
-node.create_subscription(Bool, '/button/state', on_button, 10)
-node.create_subscription(Float32MultiArray, '/ir/raw', on_ir, 10)
-node.create_subscription(Float32MultiArray, '/pot/raw', on_pot, 10)
-node.create_subscription(Odometry, '/odom/unfiltered', on_odom, 10)
-node.create_subscription(Imu, '/imu/data', on_imu, 10)
+node.create_subscription(Bool, '/button/state', on_button, 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
+node.create_subscription(Float32MultiArray, '/ir/raw', on_ir, 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
+node.create_subscription(Float32MultiArray, '/pot/raw', on_pot, 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
+node.create_subscription(Odometry, '/odom/unfiltered', on_odom, 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
+node.create_subscription(Imu, '/imu/data', on_imu, 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
 
 # ── loop หลัก: รับข้อความตลอด · ครบ 1 วินาทีพิมพ์สรุป ────────────
 next_print = time.time() + 1.0
 try:
     while True:
-        rclpy.spin_once(node, timeout_sec=0.05)
+        rclpy.spin_once(node, timeout_sec=0.05)   # รอข้อความเข้าไม่เกิน 0.05 วิ แล้ววนรอบใหม่ (≈20 รอบ/วินาที)
         if time.time() >= next_print:
             line = 'ปุ่ม ' + {None: '?', True: 'กด', False: 'ปล่อย'}[button]
             line += f' | IR L {ir[0]:.2f}V R {ir[1]:.2f}V' if ir else ' | IR -'

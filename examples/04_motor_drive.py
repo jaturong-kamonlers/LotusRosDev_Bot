@@ -21,7 +21,7 @@ class Drive(Node):
 
     def __init__(self):
         super().__init__('example_motor_drive')
-        self.pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.pub = self.create_publisher(Twist, '/cmd_vel', 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
 
     def send(self, vx=0.0, wz=0.0):
         """ส่งคำสั่งความเร็ว 1 ครั้ง: vx = เดินหน้า (m/s) · wz = หมุน (rad/s)
@@ -31,7 +31,7 @@ class Drive(Node):
         t.angular.z = max(-MAX_ANG, min(MAX_ANG, float(wz)))  # ใส่ความเร็วหมุน
         self.pub.publish(t)
 
-    def run_for(self, vx, wz, seconds, hz=20):
+    def run_for(self, vx, wz, seconds, hz=20):   # hz=20: ส่งซ้ำ 20 ครั้ง/วินาที (ทุก 0.05 วิ) — เฟิร์มแวร์หยุดล้อถ้าเงียบเกิน 200 ms
         """ส่งความเร็วเดิมซ้ำ ๆ hz ครั้ง/วินาที นาน seconds วินาที
         (ต้องส่งซ้ำ เพราะเฟิร์มแวร์หยุดล้อเมื่อเงียบเกิน 200 ms)"""
         end = time.time() + seconds                           # เวลาที่ต้องหยุด
@@ -41,15 +41,15 @@ class Drive(Node):
 
     def stop(self):
         """ส่งความเร็ว 0 ซ้ำ 10 ครั้ง (0.5 วินาที) ให้แน่ใจว่าล้อหยุด"""
-        for _ in range(10):
+        for _ in range(10):   # 10 ครั้ง × 0.05 วิ = 0.5 วินาที
             self.send(0.0, 0.0)
-            time.sleep(0.05)
+            time.sleep(0.05)   # 0.05 วิ ระหว่างคำสั่ง (= 20 ครั้ง/วินาที)
 
 
 def main():
     """ตรวจความปลอดภัย → ถามยืนยัน → เดินหน้า → หยุด → หมุน → หยุด"""
-    speed = float(sys.argv[1]) if len(sys.argv) > 1 else 0.10
-    secs = float(sys.argv[2]) if len(sys.argv) > 2 else 2.0
+    speed = float(sys.argv[1]) if len(sys.argv) > 1 else 0.10   # ความเร็วเดินหน้าเริ่มต้น 0.10 m/s (ช้า · ปลอดภัย) ถ้าไม่ใส่ค่าต่อท้าย
+    secs = float(sys.argv[2]) if len(sys.argv) > 2 else 2.0   # เวลาแต่ละช่วงเริ่มต้น 2.0 วินาที ถ้าไม่ใส่ค่าต่อท้าย
     rclpy.init()
     node = Drive()
     time.sleep(1.0)                                           # รอ discovery (และให้นับ publisher อื่นได้ถูก)
@@ -62,7 +62,7 @@ def main():
     try:
         node.get_logger().info(f'เดินหน้า {speed} m/s {secs} วิ'); node.run_for(speed, 0.0, secs)
         node.stop(); time.sleep(0.5)                          # หยุดพักครึ่งวินาทีก่อนหมุน
-        node.get_logger().info(f'หมุนซ้าย 0.6 rad/s {secs} วิ');  node.run_for(0.0, 0.6, secs)
+        node.get_logger().info(f'หมุนซ้าย 0.6 rad/s {secs} วิ');  node.run_for(0.0, 0.6, secs)   # vx 0 m/s · wz 0.6 rad/s (≈34°/วินาที) = หมุนซ้ายอยู่กับที่
     except KeyboardInterrupt:
         node.get_logger().warn('หยุด (Ctrl+C)')
     finally:

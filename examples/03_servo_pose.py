@@ -24,7 +24,7 @@ def load_presets():
     try:
         return {k: [float(v[0]), float(v[1]), S3_DEFAULT] for k, v in json.load(open(PRESET_FILE)).items()}
     except (OSError, ValueError):
-        return {'home': [0.0, 103.0, 90.0]}
+        return {'home': [0.0, 103.0, 90.0]}   # ท่าสำรองถ้าอ่าน ~/servo_presets.json ไม่ได้: s1 หนีบ 0°=อ้า · s2 ยก 103° · s3 90°=กลาง (ไม่ใช้)
 
 
 class Servo(Node):
@@ -32,7 +32,7 @@ class Servo(Node):
 
     def __init__(self):
         super().__init__('example_servo')
-        self.pub = self.create_publisher(Float32MultiArray, '/servo/cmd', 10)
+        self.pub = self.create_publisher(Float32MultiArray, '/servo/cmd', 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
 
     def move(self, angles):
         """ส่งมุม [s1, s2, s3] ไปที่บอร์ด — จำกัดให้อยู่ 0–180° ก่อนส่ง กันค่าผิดพลาด"""

@@ -10,12 +10,12 @@ import rclpy
 from std_msgs.msg import Bool
 
 # อ่านค่าที่พิมพ์ต่อท้ายคำสั่ง (ไม่ใส่ใช้ค่าตั้งต้น)
-times = int(sys.argv[1]) if len(sys.argv) > 1 else 5
-period = float(sys.argv[2]) if len(sys.argv) > 2 else 0.5
+times = int(sys.argv[1]) if len(sys.argv) > 1 else 5   # จำนวนรอบกะพริบ (ไม่ใส่ค่าต่อท้าย = 5 รอบ)
+period = float(sys.argv[2]) if len(sys.argv) > 2 else 0.5   # วินาทีที่ติด และวินาทีที่ดับ ต่อรอบ (ไม่ใส่ = 0.5 วิ)
 
 rclpy.init()
 node = rclpy.create_node('example_led_blink')
-led = node.create_publisher(Bool, '/led/state', 10)
+led = node.create_publisher(Bool, '/led/state', 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
 time.sleep(1.0)                                  # รอ discovery (ไม่งั้นคำสั่งแรกหาย)
 
 try:

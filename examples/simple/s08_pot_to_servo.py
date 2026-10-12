@@ -9,24 +9,24 @@ import time
 import rclpy
 from std_msgs.msg import Float32MultiArray
 
-MIN_DEG, MAX_DEG = 0.0, 85.0
-HOLD_S2, HOLD_S3 = 103.0, 90.0
+MIN_DEG, MAX_DEG = 0.0, 85.0   # ช่วงมุมตัวหนีบ s1: 0° = อ้า · 85° = หนีบ (ตาม preset open/close)
+HOLD_S2, HOLD_S3 = 103.0, 90.0   # s2 ยกค้าง 103° (ท่า home) · s3 = 90° กลาง (ไม่ใช้)
 
 rclpy.init()
 node = rclpy.create_node('example_pot_to_servo')
-servo = node.create_publisher(Float32MultiArray, '/servo/cmd', 10)
+servo = node.create_publisher(Float32MultiArray, '/servo/cmd', 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
 
 pot_raw = None                                   # ค่า ADC ของ POT ล่าสุด
 def on_pot(msg):
     global pot_raw
     pot_raw = msg.data[1]
-node.create_subscription(Float32MultiArray, '/pot/raw', on_pot, 10)
+node.create_subscription(Float32MultiArray, '/pot/raw', on_pot, 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
 
 last_deg = None
 last_sent = 0.0
 try:
     while True:
-        rclpy.spin_once(node, timeout_sec=0.05)
+        rclpy.spin_once(node, timeout_sec=0.05)   # รอข้อความเข้าไม่เกิน 0.05 วิ แล้ววนรอบใหม่ (≈20 รอบ/วินาที)
         if pot_raw is None:                      # ยังไม่ได้ค่า
             continue
         ratio = max(0.0, min(1.0, pot_raw / 4095.0))       # สัดส่วน 0–1 ของการหมุน

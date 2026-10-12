@@ -11,11 +11,11 @@ import rclpy
 from std_msgs.msg import Float32MultiArray
 
 notes = [('C4', 261.6), ('D4', 293.7), ('E4', 329.6), ('F4', 349.2),   # (ชื่อโน้ต, ความถี่) เรียงตามที่จะเล่น
-         ('G4', 392.0), ('A4', 440.0), ('B4', 493.9), ('C5', 523.3)]
+         ('G4', 392.0), ('A4', 440.0), ('B4', 493.9), ('C5', 523.3)]   # ความถี่เป็น Hz · C4 = โดกลาง 261.6 Hz · A4 = 440 Hz (ลามาตรฐาน)
 
 rclpy.init()
 node = rclpy.create_node('example_buzzer')
-buzzer = node.create_publisher(Float32MultiArray, '/buzzer/play', 10)
+buzzer = node.create_publisher(Float32MultiArray, '/buzzer/play', 10)   # 10 = ขนาดคิว (QoS depth): เก็บข้อความรอได้ 10 ข้อความ
 time.sleep(1.0)
 
 try:
