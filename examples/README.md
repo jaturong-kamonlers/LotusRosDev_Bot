@@ -4,6 +4,7 @@
 
 | ไฟล์ | ทำอะไร | topic | ขยับหุ่น? |
 |---|---|---|---|
+| 00_template_node.py | แม่แบบเริ่ม node ใหม่ (pub+sub+timer) | /led/state, /button/state | ไม่ |
 | 01_led_blink.py | กะพริบ LED | /led/state (Bool) | ไม่ |
 | 02_buzzer_melody.py | เล่นสเกลโด–โด / เสียงเดียว | /buzzer/play [Hz, ms] | ไม่ |
 | 03_servo_pose.py | สั่งแขนกลด้วยชื่อท่า/มุม | /servo/cmd [s1,s2,s3] | แขนกล |
