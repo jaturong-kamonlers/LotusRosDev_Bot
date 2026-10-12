@@ -92,6 +92,7 @@ static inline void set_microros_net_transports(IPAddress agent_ip, uint16_t agen
 #ifndef NODE_NAME
 #define NODE_NAME "linorobot_base_node"
 #endif
+#define LOTUS_FW_VERSION "v2026.10.12"   // แสดงบน OLED ตอนบูต — เปลี่ยนทุกครั้งที่ flash เวอร์ชันใหม่
 #ifndef TOPIC_PREFIX
 #define TOPIC_PREFIX
 #endif
@@ -282,6 +283,7 @@ void setup()
     display.clear();
     display.setTextAlignment(TEXT_ALIGN_LEFT);
     display.setFont(ArialMT_Plain_10);
+    display.drawString(0, 0, "FW " LOTUS_FW_VERSION);
     display.drawString(0, 10, "Init IMU...");
     display.display();
     delay(100);

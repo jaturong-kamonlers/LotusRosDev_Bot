@@ -18,6 +18,7 @@
 //    4. Servo check   — POT 0-180° ควบคุม servo ทั้ง 3
 //    5. Sensor check  — แสดงค่า sensor ทุกตัว real-time
 //    6. LED test      — LED กระพริบ POT ปรับความเร็ว
+//    7. Count ticks   — หมุนล้อด้วยมือ 10 รอบ นับ tick จริง → CPR แม่นที่สุด (มอเตอร์ไม่หมุน)
 // ════════════════════════════════════════════════════════════════
 
 #ifndef CALIB_MENU_H
@@ -27,7 +28,8 @@
 #define CALIB_SAMPLE_TIME    20      // วินาที ต่อ CPR sample
 #define CALIB_CPR5_ROUNDS     5      // จำนวนรอบ CPR x5
 #define CALIB_WARN_STDDEV    20.0f   // เตือนถ้า stddev เกินนี้
-#define CALIB_MENU_ITEMS      6
+#define CALIB_MENU_ITEMS      7
+#define CALIB_HAND_REVS      10      // จำนวนรอบที่หมุนล้อด้วยมือในเมนู 7
 #define CALIB_OLED_ROWS       4
 #define CALIB_OLED_ROW_H     12
 #define CALIB_OLED_CONTENT_Y 14
@@ -160,7 +162,8 @@ static const char *calib_menuItems[CALIB_MENU_ITEMS] = {
     "Sample CPR x5",
     "Servo check",
     "Sensor check",
-    "LED test"
+    "LED test",
+    "Count ticks"
 };
 
 static int calib_showMenu() {
@@ -553,6 +556,52 @@ static void calib_runLEDTest() {
 }
 
 // ════════════════════════════════════════════════════════════════
+//  MENU 7 — Count ticks (หมุนล้อด้วยมือ)  — เพิ่ม v2026.10.12
+//  ยกหุ่นให้ล้อลอย · ทำเครื่องหมายที่ล้อ · หมุนล้อด้วยมือ CALIB_HAND_REVS รอบพอดี
+//  CPR จริง = |ticks| / รอบ  (ไม่ขึ้นกับแรงดันแบต/RPM แบบเมนู 2–3 ซึ่งเป็นค่าประมาณ)
+//  มอเตอร์ไม่ถูกสั่งหมุนในเมนูนี้
+// ════════════════════════════════════════════════════════════════
+static void calib_runCountTicks() {
+    if (!calib_confirmScreen("Count ticks by hand")) return;
+    while (digitalRead(BUTTON_PIN) == LOW) delay(10);
+    delay(150);
+    calib_btnResetEdge();
+
+    encoders[0]->write(0);
+    encoders[1]->write(0);
+    while (true) {
+        long t1 = labs(encoders[0]->read());
+        long t2 = labs(encoders[1]->read());
+        display.clear();
+        calib_oledHeader("COUNT TICKS");
+        char h[22]; snprintf(h, sizeof(h), "Turn wheel %d rev", CALIB_HAND_REVS);
+        calib_oledLine(0, h);
+        char a[22]; snprintf(a, sizeof(a), "M1(L):%ld", t1);
+        calib_oledLine(1, a);
+        char b[22]; snprintf(b, sizeof(b), "M2(R):%ld", t2);
+        calib_oledLine(2, b);
+        calib_oledLine(3, "BTN=done");
+        display.display();
+        if (calib_btnPressed()) break;
+        delay(60);
+    }
+
+    float cpr1 = labs(encoders[0]->read()) / (float)CALIB_HAND_REVS;
+    float cpr2 = labs(encoders[1]->read()) / (float)CALIB_HAND_REVS;
+    display.clear();
+    calib_oledHeader("CPR (hand)");
+    char r1[22]; snprintf(r1, sizeof(r1), "M1:%.0f cfg:%d", cpr1, (int)COUNTS_PER_REV1);
+    calib_oledLine(0, r1);
+    char r2[22]; snprintf(r2, sizeof(r2), "M2:%.0f cfg:%d", cpr2, (int)COUNTS_PER_REV2);
+    calib_oledLine(1, r2);
+    calib_oledLine(2, "0 = wheel not turned");
+    calib_oledLine(3, "BTN=menu");
+    display.display();
+    calib_beepDone();
+    while (!calib_btnPressed()) delay(30);
+}
+
+// ════════════════════════════════════════════════════════════════
 //  MAIN CALIBRATION LOOP — เรียกจาก loop() เมื่อ calib_mode=true
 // ════════════════════════════════════════════════════════════════
 void runCalibration() {
@@ -564,6 +613,7 @@ void runCalibration() {
         case 3: calib_runServoCheck();  break;
         case 4: calib_runSensorCheck(); break;
         case 5: calib_runLEDTest();     break;
+        case 6: calib_runCountTicks();  break;
         default: break;
     }
 }
