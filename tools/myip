@@ -1,0 +1,21 @@
+#!/bin/bash
+# myip — แสดงชื่อเครื่อง / ไวไฟ / IP / MAC ของเครื่องนี้ พร้อมคำสั่ง ssh ที่ใช้ได้ทันที (LotusRosDev_Bot)
+# ใช้:  myip        (ไม่ต้องติดตั้งอะไรเพิ่ม — ใช้ ip, nmcli, hostname ที่มีใน Ubuntu อยู่แล้ว)
+H=$(hostname); U=$(id -un)
+SSID=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | awk -F: '$1=="yes"{print $2; exit}')
+echo "เครื่อง : $H   (mDNS: $H.local)"
+echo "ไวไฟ   : ${SSID:-(ไม่ได้ต่อไวไฟ)}"
+echo "การ์ดเครือข่าย:"
+FIRST=""
+while read -r ifc state rest; do
+  case "$ifc" in lo|dummy*|docker*|veth*|br-*|l4tbr*|rndis*|usb*) continue;; esac
+  ip4=$(ip -4 -o addr show dev "$ifc" 2>/dev/null | awk '{print $4}' | cut -d/ -f1 | head -1)
+  mac=$(cat /sys/class/net/"$ifc"/address 2>/dev/null)
+  printf "  %-10s %-6s IP %-16s MAC %s\n" "$ifc" "$state" "${ip4:--}" "$mac"
+  [ -z "$FIRST" ] && [ -n "$ip4" ] && FIRST=$ip4
+done < <(ip -br link | awk '{print $1, $2}')
+if [ -n "$FIRST" ]; then
+  echo "เข้าจากเครื่องอื่น:  ssh $U@$FIRST    หรือ    ssh $U@$H.local"
+else
+  echo "⚠️  ยังไม่มี IP — ยังไม่ได้ต่อเครือข่าย (ดูคู่มือบทที่ 10)"
+fi

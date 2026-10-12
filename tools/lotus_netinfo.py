@@ -81,8 +81,10 @@ def main():
     while True:
         time.sleep(PERIOD)
         host, ssid, psk, ip = netinfo()
-        if not ip or port_busy():
+        if port_busy():
             continue
+        if not ip:                      # ไม่มีเครือข่าย → แจ้งจอว่า 0.0.0.0 (ไม่ค้าง IP เก่า)
+            ip, ssid, psk = '0.0.0.0', '(no network)', '-'
         user, spw = ssh_login()
         line = f'NET\t{host}\t{ssid}\t{psk}\t{ip}\t{user}\t{spw}\n'.encode('utf-8', 'replace')
         try:
