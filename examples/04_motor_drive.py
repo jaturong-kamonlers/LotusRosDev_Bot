@@ -11,52 +11,62 @@
 import sys, time
 import rclpy
 from rclpy.node import Node
-from geometry_msgs.msg import Twist
+from geometry_msgs.msg import Twist                   # ข้อความความเร็ว: linear (เส้นตรง) + angular (หมุน)
 
-MAX_LIN, MAX_ANG = 0.25, 1.2                                  # เพดานความปลอดภัย
+MAX_LIN, MAX_ANG = 0.25, 1.2                          # เพดานความปลอดภัย: เร็วสุด 0.25 m/s · หมุนสุด 1.2 rad/s
 
 
 class Drive(Node):
+    """node ที่ส่งความเร็วไปให้ล้อ"""
+
     def __init__(self):
         super().__init__('example_motor_drive')
         self.pub = self.create_publisher(Twist, '/cmd_vel', 10)
 
     def send(self, vx=0.0, wz=0.0):
-        t = Twist()
-        t.linear.x = max(-MAX_LIN, min(MAX_LIN, float(vx)))
-        t.angular.z = max(-MAX_ANG, min(MAX_ANG, float(wz)))
+        """ส่งคำสั่งความเร็ว 1 ครั้ง: vx = เดินหน้า (m/s) · wz = หมุน (rad/s)
+        จำกัดค่าไม่ให้เกินเพดานก่อนส่งเสมอ"""
+        t = Twist()                                           # สร้างข้อความเปล่า (ทุกค่าเป็น 0)
+        t.linear.x = max(-MAX_LIN, min(MAX_LIN, float(vx)))   # ใส่ความเร็วเดินหน้า (ตัดไม่ให้เกินเพดาน)
+        t.angular.z = max(-MAX_ANG, min(MAX_ANG, float(wz)))  # ใส่ความเร็วหมุน
         self.pub.publish(t)
 
     def run_for(self, vx, wz, seconds, hz=20):
-        end = time.time() + seconds
+        """ส่งความเร็วเดิมซ้ำ ๆ hz ครั้ง/วินาที นาน seconds วินาที
+        (ต้องส่งซ้ำ เพราะเฟิร์มแวร์หยุดล้อเมื่อเงียบเกิน 200 ms)"""
+        end = time.time() + seconds                           # เวลาที่ต้องหยุด
         while time.time() < end:
             self.send(vx, wz)
-            time.sleep(1.0 / hz)
+            time.sleep(1.0 / hz)                              # 20 Hz = ทุก 0.05 วินาที
 
     def stop(self):
-        for _ in range(10):                                   # ส่ง 0 ซ้ำให้แน่ใจ
+        """ส่งความเร็ว 0 ซ้ำ 10 ครั้ง (0.5 วินาที) ให้แน่ใจว่าล้อหยุด"""
+        for _ in range(10):
             self.send(0.0, 0.0)
             time.sleep(0.05)
 
 
 def main():
+    """ตรวจความปลอดภัย → ถามยืนยัน → เดินหน้า → หยุด → หมุน → หยุด"""
     speed = float(sys.argv[1]) if len(sys.argv) > 1 else 0.10
     secs = float(sys.argv[2]) if len(sys.argv) > 2 else 2.0
     rclpy.init()
     node = Drive()
-    time.sleep(1.0)
+    time.sleep(1.0)                                           # รอ discovery (และให้นับ publisher อื่นได้ถูก)
+    # ถ้ามีโปรแกรมอื่นส่ง /cmd_vel อยู่ด้วย คำสั่งจะตีกัน → ไม่ทำต่อ
     if node.count_publishers('/cmd_vel') > 1:
         print('❌ มี node อื่นส่ง /cmd_vel อยู่ (Nav2/teleop/ภารกิจ) — ปิดก่อน'); node.destroy_node(); rclpy.shutdown(); return
+    # ให้คนยืนยันว่าพร้อมก่อนขยับ
     if input('⚠️ หุ่นจะเคลื่อนที่ — มีคนเฝ้าและพื้นที่ว่างแล้ว? พิมพ์ y แล้ว Enter: ').strip().lower() != 'y':
         node.destroy_node(); rclpy.shutdown(); return
     try:
         node.get_logger().info(f'เดินหน้า {speed} m/s {secs} วิ'); node.run_for(speed, 0.0, secs)
-        node.stop(); time.sleep(0.5)
+        node.stop(); time.sleep(0.5)                          # หยุดพักครึ่งวินาทีก่อนหมุน
         node.get_logger().info(f'หมุนซ้าย 0.6 rad/s {secs} วิ');  node.run_for(0.0, 0.6, secs)
     except KeyboardInterrupt:
         node.get_logger().warn('หยุด (Ctrl+C)')
     finally:
-        node.stop()
+        node.stop()                                           # ไม่ว่าจบแบบไหน ต้องสั่งหยุดล้อเสมอ
         node.destroy_node()
         rclpy.shutdown()
 
