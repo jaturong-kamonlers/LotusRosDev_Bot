@@ -1,0 +1,24 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Firmware: Build (ไม่แตะบอร์ด)",
+            "type": "shell",
+            "command": "bash ~/LotusRosDev_Bot/tools/flash.sh build",
+            "group": { "kind": "build", "isDefault": true },
+            "problemMatcher": []
+        },
+        {
+            "label": "Firmware: Build + Upload ลง ESP32",
+            "type": "shell",
+            "command": "bash ~/LotusRosDev_Bot/tools/flash.sh upload",
+            "problemMatcher": []
+        },
+        {
+            "label": "Firmware: Verify (บอร์ดตรงกับไฟล์ล่าสุดไหม)",
+            "type": "shell",
+            "command": "bash ~/LotusRosDev_Bot/tools/flash.sh verify",
+            "problemMatcher": []
+        }
+    ]
+}

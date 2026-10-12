@@ -1,0 +1,7 @@
+{
+    "files.watcherExclude": { "**/.pio/**": true, "**/.git/objects/**": true },
+    "search.exclude": { "**/.pio/**": true },
+    "files.exclude": { "**/.pio": true },
+    "files.associations": { "*.ino": "cpp", "*.h": "cpp" },
+    "C_Cpp.intelliSenseEngine": "disabled"
+}

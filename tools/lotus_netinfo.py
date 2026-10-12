@@ -15,7 +15,7 @@ import serial
 PORT = '/dev/esp32'
 PERIOD = 3.0
 LOGIN_CONF = '/etc/lotusbot/ssh_login.conf'
-BUSY_SCRIPTS = r'esptool|espefuse|platformio|pio run|start\.sh|start2\.sh|stop\.sh|efuse\.sh|agent\.sh'
+BUSY_SCRIPTS = r'esptool|espefuse|platformio|pio run|start\.sh|start2\.sh|stop\.sh|efuse\.sh|agent\.sh|flash\.sh'
 
 
 def run(cmd):
