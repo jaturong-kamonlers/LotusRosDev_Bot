@@ -39,7 +39,7 @@ if [ "$MODE" = upload ]; then
     $PY $ESPT --chip esp32 --port $PORT --baud 115200 verify_flash 0x10000 $BIN 2>&1 | grep -q "digest matched" && { ok=1; break; }
     echo "ลองใหม่ครั้งที่ $((i+1))…"; sleep 2
   done
-  [ $ok = 1 ] || die "เขียนไม่สำเร็จ — ตรวจสาย / ลองใหม่ / ย้อนเวอร์ชันด้วยไฟล์ใน ~/fw_backup (บทที่ 17.10)"
+  [ $ok = 1 ] || die "เขียนไม่สำเร็จ — ตรวจสาย / ลองใหม่ / ย้อนเวอร์ชันด้วยไฟล์ใน ~/fw_backup (บทที่ 18.10)"
   say "✅ flash + verify ผ่าน · บอร์ดรีเซ็ตแล้ว จอต้องขึ้น FW $ver · ต่อไป: bash ~/agent.sh (หรือ start.sh)"
   exit 0
 fi
