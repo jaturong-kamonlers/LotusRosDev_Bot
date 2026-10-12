@@ -16,9 +16,10 @@ say "เฟิร์มแวร์ $ver · git $(git -C $REPO rev-parse --short
 
 if [ "$MODE" = build ] || [ "$MODE" = upload ]; then
   say "1) build (pio run -e myrobot)"
-  OUT=$(cd $FW && $PIO run -e myrobot 2>&1); RC=$?
-  echo "$OUT" | grep -E "RAM:|Flash:|error:|Error|SUCCESS|FAILED" || true
-  [ $RC -eq 0 ] && [ -f $BIN ] || die "build ไม่สำเร็จ — ดู error ด้านบน (เต็ม ๆ: cd $FW && $PIO run -e myrobot)"
+  echo "(ใช้เวลา ~1–2 นาที · ถ้าเปิด VS Code Remote อยู่อาจถึง ~2.5 นาที · log เต็ม: /tmp/pio_build.log)"
+  ( cd $FW && $PIO run -e myrobot ) 2>&1 | tee /tmp/pio_build.log | grep --line-buffered -E "Compiling|Linking|Building|RAM:|Flash:|error:|Error|SUCCESS|FAILED" | sed -u 's/^/   /'
+  RC=${PIPESTATUS[0]}
+  [ $RC -eq 0 ] && [ -f $BIN ] || die "build ไม่สำเร็จ — ดู error ด้านบน หรือ /tmp/pio_build.log"
   [ "$MODE" = build ] && { say "✅ build เสร็จ: $BIN ($(stat -c %s $BIN) bytes) — ยังไม่ได้เขียนลงบอร์ด"; exit 0; }
 fi
 
