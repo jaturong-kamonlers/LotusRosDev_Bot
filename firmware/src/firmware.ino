@@ -57,7 +57,9 @@
 #include "wifis.h"
 #include "ota.h"
 
-#include <WiFi.h>
+#ifdef USE_WIFI_TRANSPORT
+#include <WiFi.h>        // เฉพาะ build แบบ WiFi — build แบบ USB serial ไม่ลิงก์ WiFi เลย (v2026.10.12b)
+#endif
 #include <Wire.h>
 #include "SSD1306Wire.h"
 
@@ -92,7 +94,7 @@ static inline void set_microros_net_transports(IPAddress agent_ip, uint16_t agen
 #ifndef NODE_NAME
 #define NODE_NAME "linorobot_base_node"
 #endif
-#define LOTUS_FW_VERSION "v2026.10.12"   // แสดงบน OLED ตอนบูต — เปลี่ยนทุกครั้งที่ flash เวอร์ชันใหม่
+#define LOTUS_FW_VERSION "v2026.10.12b"   // แสดงบน OLED ตอนบูต — เปลี่ยนทุกครั้งที่ flash เวอร์ชันใหม่
 #ifndef TOPIC_PREFIX
 #define TOPIC_PREFIX
 #endif
@@ -299,10 +301,14 @@ void setup()
 
     display.clear();
     display.drawString(0, 0,  "IMU......OK");
+#ifdef USE_WIFI_TRANSPORT
     display.drawString(0, 10, "Wifi connecting...");
     display.display();
-
-    WiFi.mode(WIFI_OFF);   // TEST: ปิด WiFi radio (serial transport ไม่ใช้ WiFi; สงสัยกวน PCNT encoder)
+#else
+    display.drawString(0, 10, "USB serial mode");
+    display.display();
+    // v2026.10.12b: build แบบ serial ไม่มีโค้ด WiFi — วิทยุ WiFi ไม่ถูกเปิดตั้งแต่ต้น (เดิม WiFi.mode(WIFI_OFF))
+#endif
     // initWifis();   // no-op อยู่แล้ว (WIFI_AP_LIST undefined)
     // initOta();
 
@@ -659,7 +665,11 @@ void updateDisplay()
     display.clear();
     display.setFont(ArialMT_Plain_10);
     display.setTextAlignment(TEXT_ALIGN_LEFT);
+#ifdef USE_WIFI_TRANSPORT
     display.drawString(0, 0, "IP: " + String(WiFi.localIP().toString().c_str()));
+#else
+    display.drawString(0, 0, "USB serial");
+#endif
     if (state == AGENT_CONNECTED) {
         display.drawString(0, 13, "ROS2: OK");
     } else {
@@ -687,8 +697,13 @@ void updateDisplaySensors()
     display.setFont(ArialMT_Plain_10);
 
     // ── row 0: ROS2 status + IP ──────────────────────────────
+#ifdef USE_WIFI_TRANSPORT
     String ip_short = WiFi.localIP().toString();
     int last_dot = ip_short.lastIndexOf('.');
+#else
+    String ip_short = ".USB";   // ไม่มี WiFi — แสดง USB แทนเลข IP
+    int last_dot = 0;
+#endif
     String status_str = (state == AGENT_CONNECTED) ? "OK" : "--";
     display.setTextAlignment(TEXT_ALIGN_LEFT);
     display.drawString(0, 0, "ROS2:" + status_str);
