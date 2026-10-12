@@ -94,7 +94,7 @@ static inline void set_microros_net_transports(IPAddress agent_ip, uint16_t agen
 #ifndef NODE_NAME
 #define NODE_NAME "linorobot_base_node"
 #endif
-#define LOTUS_FW_VERSION "v2026.10.12b"   // แสดงบน OLED ตอนบูต — เปลี่ยนทุกครั้งที่ flash เวอร์ชันใหม่
+#define LOTUS_FW_VERSION "v2026.10.12c"   // แสดงบน OLED ตอนบูต — เปลี่ยนทุกครั้งที่ flash เวอร์ชันใหม่
 #ifndef TOPIC_PREFIX
 #define TOPIC_PREFIX
 #endif
@@ -204,6 +204,61 @@ MAG mag;
 Servo servo1, servo2, servo3;
 #endif
 
+// ── ข้อมูลเครือข่ายของ Jetson (v2026.10.12c) ─────────────────
+//  Jetson (service lotus-netinfo) ส่งบรรทัด  "NET\t<host>\t<ssid>\t<pass>\t<ip>\n"  ทาง USB serial
+//  ทุก 3 วิ เฉพาะตอนที่ไม่มี agent/esptool เปิดพอร์ตอยู่ → ESP32 เก็บลง NVS แล้วแสดงบน OLED
+//  ROS2 mode รับเฉพาะตอนรอ agent และอ่านเฉพาะเมื่อ byte แรกเป็น 'N' (ไม่แย่ง frame 0x7E ของ micro-ROS)
+#include <Preferences.h>
+static Preferences netPrefs;
+static String net_host, net_ssid, net_pass, net_ip;
+
+static void netLoad() {
+    netPrefs.begin("lotusnet", true);
+    net_host = netPrefs.getString("host", "");
+    net_ssid = netPrefs.getString("ssid", "");
+    net_pass = netPrefs.getString("pass", "");
+    net_ip   = netPrefs.getString("ip", "");
+    netPrefs.end();
+}
+
+static bool netParse(const String &line) {
+    if (!line.startsWith("NET\t")) return false;
+    String fld[5]; int n = 0, start = 0;
+    for (int i = 0; i <= (int)line.length() && n < 5; i++) {
+        if (i == (int)line.length() || line[i] == '\t') { fld[n++] = line.substring(start, i); start = i + 1; }
+    }
+    if (n < 5) return false;
+    fld[4].trim();
+    if (fld[4].length() < 7 || fld[4].length() > 15) return false;   // IPv4 เท่านั้น
+    if (fld[1] == net_host && fld[2] == net_ssid && fld[3] == net_pass && fld[4] == net_ip) return true;
+    net_host = fld[1]; net_ssid = fld[2]; net_pass = fld[3]; net_ip = fld[4];
+    netPrefs.begin("lotusnet", false);                 // เขียน NVS เฉพาะเมื่อค่าเปลี่ยน (ถนอม flash)
+    netPrefs.putString("host", net_host);
+    netPrefs.putString("ssid", net_ssid);
+    netPrefs.putString("pass", net_pass);
+    netPrefs.putString("ip",   net_ip);
+    netPrefs.end();
+    return true;
+}
+
+// exclusive=true : นับถอยหลัง/โหมด CALIB (ไม่มี micro-ROS) ทิ้ง byte อื่นได้
+// exclusive=false: ROS2 mode ตอนรอ agent — อ่านเฉพาะบรรทัดที่ขึ้นต้นด้วย 'N'
+static bool netPollSerial(bool exclusive) {
+    bool got = false;
+    while (Serial.available() > 0) {
+        int c = Serial.peek();
+        if (c != 'N') {
+            if (!exclusive) return got;
+            Serial.read();
+            continue;
+        }
+        Serial.setTimeout(50);
+        String line = Serial.readStringUntil('\n');
+        if (netParse(line)) got = true;
+    }
+    return got;
+}
+
 // ── Calibration menu — include หลัง objects ทั้งหมด ─────────
 // calib_menu.h ใช้: motor1/2_controller, encoders[], motors[],
 //                   pids[], kinematics, servo1/2/3, display
@@ -264,6 +319,7 @@ void setup()
 #endif
 
     Serial.begin(BAUDRATE);
+    netLoad();   // ข้อมูลเครือข่าย Jetson ที่จำไว้ครั้งก่อน (NVS)
     pinMode(LED_PIN, OUTPUT);
 
 #ifdef SDA_PIN
@@ -376,7 +432,7 @@ void setup()
         display.clear();
         display.setFont(ArialMT_Plain_10);
         display.setTextAlignment(TEXT_ALIGN_CENTER);
-        display.drawString(64, 0,  "LotusRosDev Shield");
+        display.drawString(64, 0,  net_ip.length() ? ("IP " + net_ip) : String("LotusRosDev Shield"));
         display.drawLine(0, 11, 127, 11);
         display.drawString(64, 18, "Hold BTN = CALIB");
         display.drawString(64, 32, "Release  = ROS2");
@@ -393,6 +449,7 @@ void setup()
                 calib_mode = true;
                 break;
             }
+            netPollSerial(true);
             delay(20);
         }
     }
@@ -433,6 +490,7 @@ void setup()
 #ifdef USE_WIFI_TRANSPORT
     set_microros_net_transports(AGENT_IP, AGENT_PORT);
 #else
+    while (Serial.available() > 0) Serial.read();   // ล้างข้อความ NET ที่ค้าง ก่อนให้ micro-ROS ใช้ serial
     set_microros_serial_transports(Serial);
 #endif
 
@@ -455,6 +513,7 @@ void loop()
     switch (state)
     {
         case WAITING_AGENT:
+            netPollSerial(false);   // รับ IP จาก Jetson ระหว่างรอ agent
             EXECUTE_EVERY_N_MS(500,
                 state = (RMW_RET_OK == rmw_uros_ping_agent(100, 1))
                         ? AGENT_AVAILABLE : WAITING_AGENT;
@@ -668,7 +727,7 @@ void updateDisplay()
 #ifdef USE_WIFI_TRANSPORT
     display.drawString(0, 0, "IP: " + String(WiFi.localIP().toString().c_str()));
 #else
-    display.drawString(0, 0, "USB serial");
+    display.drawString(0, 0, "IP:" + (net_ip.length() ? net_ip : String("-")));
 #endif
     if (state == AGENT_CONNECTED) {
         display.drawString(0, 13, "ROS2: OK");
@@ -701,8 +760,8 @@ void updateDisplaySensors()
     String ip_short = WiFi.localIP().toString();
     int last_dot = ip_short.lastIndexOf('.');
 #else
-    String ip_short = ".USB";   // ไม่มี WiFi — แสดง USB แทนเลข IP
-    int last_dot = 0;
+    String ip_short = net_ip.length() ? net_ip : String("-");   // IP ของ Jetson ที่ได้รับทาง serial
+    int last_dot = -1;                                            // แสดงเต็ม
 #endif
     String status_str = (state == AGENT_CONNECTED) ? "OK" : "--";
     display.setTextAlignment(TEXT_ALIGN_LEFT);
