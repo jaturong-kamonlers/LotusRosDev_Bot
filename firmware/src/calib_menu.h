@@ -20,6 +20,7 @@
 //    6. LED test      — LED กระพริบ POT ปรับความเร็ว
 //    7. Count ticks   — หมุนล้อด้วยมือ 10 รอบ นับ tick จริง → CPR แม่นที่สุด (มอเตอร์ไม่หมุน)
 //    8. Network info  — SSID / รหัส / IP ของ Jetson (ส่งมาทาง serial) ไว้ดูก่อน SSH
+//    9. SSH login     — คำสั่ง ssh user@ip + user/รหัสของ Jetson
 // ════════════════════════════════════════════════════════════════
 
 #ifndef CALIB_MENU_H
@@ -29,7 +30,7 @@
 #define CALIB_SAMPLE_TIME    20      // วินาที ต่อ CPR sample
 #define CALIB_CPR5_ROUNDS     5      // จำนวนรอบ CPR x5
 #define CALIB_WARN_STDDEV    20.0f   // เตือนถ้า stddev เกินนี้
-#define CALIB_MENU_ITEMS      8
+#define CALIB_MENU_ITEMS      9
 #define CALIB_HAND_REVS      10      // จำนวนรอบที่หมุนล้อด้วยมือในเมนู 7
 #define CALIB_OLED_ROWS       4
 #define CALIB_OLED_ROW_H     12
@@ -165,7 +166,8 @@ static const char *calib_menuItems[CALIB_MENU_ITEMS] = {
     "Sensor check",
     "LED test",
     "Count ticks",
-    "Network info"
+    "Network info",
+    "SSH login"
 };
 
 static int calib_showMenu() {
@@ -638,6 +640,39 @@ static void calib_runNetInfo() {
 }
 
 // ════════════════════════════════════════════════════════════════
+//  MENU 9 — SSH login (user / รหัส ของ Jetson)  — เพิ่ม v2026.10.12d
+//  ข้อมูลมาจาก /etc/lotusbot/ssh_login.conf บน Jetson ผ่าน service lotus-netinfo
+// ════════════════════════════════════════════════════════════════
+static void calib_runSshInfo() {
+    while (digitalRead(BUTTON_PIN) == LOW) delay(10);
+    delay(150);
+    calib_btnResetEdge();
+    unsigned long lastRx = 0;
+    while (true) {
+        if (netPollSerial(true)) { lastRx = millis(); calib_beepShort(); }
+        String cmd = "ssh " + net_user + "@" + net_ip;
+        int off = (cmd.length() > 21) ? calib_potMap(cmd.length() - 20) : 0;
+        display.clear();
+        calib_oledHeader("SSH LOGIN");
+        if (net_user.length() == 0 || net_ip.length() == 0) {
+            calib_oledLine(0, "No login from Jetson");
+            calib_oledLine(1, "set /etc/lotusbot/");
+            calib_oledLine(2, "ssh_login.conf");
+        } else {
+            String u = "user: " + net_user;
+            String p = "pass: " + net_spass;
+            calib_oledLine(0, cmd.substring(off, off + 21).c_str());
+            calib_oledLine(1, u.substring(0, 21).c_str());
+            calib_oledLine(2, p.substring(0, 21).c_str());
+        }
+        calib_oledLine(3, lastRx ? "live  BTN=menu" : "saved BTN=menu");
+        display.display();
+        if (calib_btnPressed()) break;
+        delay(80);
+    }
+}
+
+// ════════════════════════════════════════════════════════════════
 //  MAIN CALIBRATION LOOP — เรียกจาก loop() เมื่อ calib_mode=true
 // ════════════════════════════════════════════════════════════════
 void runCalibration() {
@@ -651,6 +686,7 @@ void runCalibration() {
         case 5: calib_runLEDTest();     break;
         case 6: calib_runCountTicks();  break;
         case 7: calib_runNetInfo();     break;
+        case 8: calib_runSshInfo();     break;
         default: break;
     }
 }

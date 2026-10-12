@@ -94,7 +94,7 @@ static inline void set_microros_net_transports(IPAddress agent_ip, uint16_t agen
 #ifndef NODE_NAME
 #define NODE_NAME "linorobot_base_node"
 #endif
-#define LOTUS_FW_VERSION "v2026.10.12c"   // แสดงบน OLED ตอนบูต — เปลี่ยนทุกครั้งที่ flash เวอร์ชันใหม่
+#define LOTUS_FW_VERSION "v2026.10.12d"   // แสดงบน OLED ตอนบูต — เปลี่ยนทุกครั้งที่ flash เวอร์ชันใหม่
 #ifndef TOPIC_PREFIX
 #define TOPIC_PREFIX
 #endif
@@ -205,12 +205,12 @@ Servo servo1, servo2, servo3;
 #endif
 
 // ── ข้อมูลเครือข่ายของ Jetson (v2026.10.12c) ─────────────────
-//  Jetson (service lotus-netinfo) ส่งบรรทัด  "NET\t<host>\t<ssid>\t<pass>\t<ip>\n"  ทาง USB serial
+//  Jetson (service lotus-netinfo) ส่งบรรทัด  "NET\t<host>\t<ssid>\t<pass>\t<ip>[\t<user>\t<sshpass>]\n"  ทาง USB serial
 //  ทุก 3 วิ เฉพาะตอนที่ไม่มี agent/esptool เปิดพอร์ตอยู่ → ESP32 เก็บลง NVS แล้วแสดงบน OLED
 //  ROS2 mode รับเฉพาะตอนรอ agent และอ่านเฉพาะเมื่อ byte แรกเป็น 'N' (ไม่แย่ง frame 0x7E ของ micro-ROS)
 #include <Preferences.h>
 static Preferences netPrefs;
-static String net_host, net_ssid, net_pass, net_ip;
+static String net_host, net_ssid, net_pass, net_ip, net_user, net_spass;   // user/sshpass = บัญชี SSH ของ Jetson (v2026.10.12d)
 
 static void netLoad() {
     netPrefs.begin("lotusnet", true);
@@ -218,25 +218,33 @@ static void netLoad() {
     net_ssid = netPrefs.getString("ssid", "");
     net_pass = netPrefs.getString("pass", "");
     net_ip   = netPrefs.getString("ip", "");
+    net_user = netPrefs.getString("user", "");
+    net_spass= netPrefs.getString("spass", "");
     netPrefs.end();
 }
 
 static bool netParse(const String &line) {
     if (!line.startsWith("NET\t")) return false;
-    String fld[5]; int n = 0, start = 0;
-    for (int i = 0; i <= (int)line.length() && n < 5; i++) {
+    String fld[7]; int n = 0, start = 0;
+    for (int i = 0; i <= (int)line.length() && n < 7; i++) {
         if (i == (int)line.length() || line[i] == '\t') { fld[n++] = line.substring(start, i); start = i + 1; }
     }
     if (n < 5) return false;
     fld[4].trim();
+    if (n < 7) { fld[5] = net_user; fld[6] = net_spass; }   // Jetson รุ่นเก่าส่ง 5 ช่อง — คงค่าเดิม
+    fld[6].trim();
     if (fld[4].length() < 7 || fld[4].length() > 15) return false;   // IPv4 เท่านั้น
-    if (fld[1] == net_host && fld[2] == net_ssid && fld[3] == net_pass && fld[4] == net_ip) return true;
+    if (fld[1] == net_host && fld[2] == net_ssid && fld[3] == net_pass && fld[4] == net_ip
+        && fld[5] == net_user && fld[6] == net_spass) return true;
     net_host = fld[1]; net_ssid = fld[2]; net_pass = fld[3]; net_ip = fld[4];
+    net_user = fld[5]; net_spass = fld[6];
     netPrefs.begin("lotusnet", false);                 // เขียน NVS เฉพาะเมื่อค่าเปลี่ยน (ถนอม flash)
     netPrefs.putString("host", net_host);
     netPrefs.putString("ssid", net_ssid);
     netPrefs.putString("pass", net_pass);
     netPrefs.putString("ip",   net_ip);
+    netPrefs.putString("user", net_user);
+    netPrefs.putString("spass",net_spass);
     netPrefs.end();
     return true;
 }

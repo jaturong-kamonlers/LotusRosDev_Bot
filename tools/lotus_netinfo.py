@@ -4,7 +4,8 @@
 lotus_netinfo.py — ส่ง hostname / SSID / รหัสไวไฟ / IP ของ Jetson ไปให้ ESP32 แสดงบน OLED (เฟิร์มแวร์ ≥ v2026.10.12c)
 รันเป็น systemd service (root เพื่ออ่านรหัสไวไฟจาก NetworkManager):  sudo systemctl status lotus-netinfo
 
-ส่งบรรทัด "NET\t<host>\t<ssid>\t<pass>\t<ip>\n" ไป /dev/esp32 ทุก 3 วิ
+ส่งบรรทัด "NET\t<host>\t<ssid>\t<pass>\t<ip>\t<user>\t<sshpass>\n" ไป /dev/esp32 ทุก 3 วิ
+user/sshpass อ่านจาก /etc/lotusbot/ssh_login.conf (root อ่านได้คนเดียว) บรรทัด user=… และ pass=…
 เฉพาะตอนที่ไม่มีโปรแกรมอื่นเปิดพอร์ตอยู่ (agent, esptool, pio, minicom ...) และไม่มี start/stop/efuse script ทำงาน
 → ไม่ยุ่งกับ micro-ROS ระหว่างใช้งานหุ่น · การเปิดพอร์ตไม่ทำให้ ESP32 รีเซ็ต (ทดสอบแล้ว)
 """
@@ -13,6 +14,7 @@ import serial
 
 PORT = '/dev/esp32'
 PERIOD = 3.0
+LOGIN_CONF = '/etc/lotusbot/ssh_login.conf'
 BUSY_SCRIPTS = r'esptool|espefuse|platformio|pio run|start\.sh|start2\.sh|stop\.sh|efuse\.sh|agent\.sh'
 
 
@@ -34,6 +36,20 @@ def port_busy():
 
 def clean(x):
     return re.sub(r'[\t\r\n]', ' ', x or '').strip() or '-'
+
+
+def ssh_login():
+    user, pw = '', ''
+    try:
+        for ln in open(LOGIN_CONF, encoding='utf-8'):
+            k, _, v = ln.strip().partition('=')
+            if k == 'user': user = v
+            elif k == 'pass': pw = v
+    except OSError:
+        pass
+    if os.environ.get('LOTUS_NETINFO_HIDE_PASS') == '1' and pw:
+        pw = '(hidden)'
+    return clean(user), clean(pw)
 
 
 def netinfo():
@@ -67,7 +83,8 @@ def main():
         host, ssid, psk, ip = netinfo()
         if not ip or port_busy():
             continue
-        line = f'NET\t{host}\t{ssid}\t{psk}\t{ip}\n'.encode('utf-8', 'replace')
+        user, spw = ssh_login()
+        line = f'NET\t{host}\t{ssid}\t{psk}\t{ip}\t{user}\t{spw}\n'.encode('utf-8', 'replace')
         try:
             s = serial.Serial()
             s.port, s.baudrate, s.timeout, s.write_timeout = PORT, 115200, 0.2, 0.5
@@ -77,9 +94,9 @@ def main():
             s.write(line)
             s.flush()
             s.close()
-            if (host, ssid, ip) != last:
-                print(f'sent host={host} ssid={ssid} ip={ip}', flush=True)
-                last = (host, ssid, ip)
+            if (host, ssid, ip, user) != last:
+                print(f'sent host={host} ssid={ssid} ip={ip} user={user}', flush=True)
+                last = (host, ssid, ip, user)
         except Exception as e:
             print('serial error:', e, flush=True)
 
