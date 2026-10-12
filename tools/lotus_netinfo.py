@@ -45,6 +45,8 @@ def netinfo():
         if typ == '802-11-wireless':
             ssid = run(['nmcli', '-g', '802-11-wireless.ssid', 'connection', 'show', name]) or name
             psk = run(['nmcli', '-s', '-g', '802-11-wireless-security.psk', 'connection', 'show', name]) or '-'
+            if os.environ.get('LOTUS_NETINFO_HIDE_PASS') == '1':   # ซ่อนรหัสบน OLED: ใส่ Environment=LOTUS_NETINFO_HIDE_PASS=1 ใน service
+                psk = '(hidden)'
             dev = d
             break
     ip = ''
