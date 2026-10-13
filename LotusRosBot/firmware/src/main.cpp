@@ -2,7 +2,7 @@
 //  LotusRosBot — เฟิร์มแวร์บอร์ด ESP32 ของหุ่น (LotusRosDev Shield, ESP32 DevKit V1 30-pin)
 //
 //  เปิดบอร์ดแล้วนับถอยหลัง 5 วินาที:
-//    กดปุ่มค้าง  → โหมดคาลิเบรต (เมนูบน OLED · src/calib/)
+//    กดปุ่มค้าง  → โหมดคาลิเบรต (เมนูบน OLED · src/calib/) — หรือหน้าเว็บส่ง @CALIB มา (tools/lrb_calib_web.py)
 //    ไม่กด       → โหมด ROS2 (micro-ROS ผ่าน USB ไป agent บน Jetson · src/ros_link.cpp)
 //
 //  โมดูล:
@@ -29,6 +29,7 @@
 #include "display.h"
 #include "netinfo.h"
 #include "calib/calib_common.h"
+#include "calib/calib_remote.h"
 
 #ifdef WDT_TIMEOUT
 #include <esp_task_wdt.h>
@@ -70,6 +71,7 @@ void setup()
     buzzerInit();
     sensorsInit();
     rosLinkInitMessages();
+    basePidLoadSaved();              // ค่า PID ที่จูนแล้วกดบันทึกจากหน้าเว็บ/เมนู 10 (ถ้ามี) ใช้ทั้งสองโหมด
 
     buzzerBeep(1000, 100);           // บี๊บ = บอร์ดเริ่มทำงาน
 
@@ -80,7 +82,7 @@ void setup()
         unsigned long t0 = millis();
         while (millis() - t0 < 1000) {
             if (buttonIsDown()) { calib_mode = true; break; }
-            netPollSerial(true);     // ระหว่างนี้รับข้อมูลไวไฟจาก Jetson ได้
+            if (calib_bootPoll()) { calib_mode = true; break; }   // รับข้อมูลไวไฟ + หน้าเว็บขอเข้าคาลิเบรต (@CALIB)
             delay(20);
         }
     }

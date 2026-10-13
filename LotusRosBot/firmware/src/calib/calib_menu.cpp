@@ -10,9 +10,13 @@
 //    7 Count ticks    หมุนล้อมือ 10 รอบ → CPR จริง        (calib_motor.cpp)
 //    8 Network info   SSID / รหัส / IP ของ Jetson        (calib_network.cpp)
 //    9 SSH login      ssh user@ip + รหัส                 (calib_network.cpp)
+//   10 PID tune       ทดสอบ step 60 rpm + กราฟ            (calib_pid.cpp)
+//  ระหว่างอยู่หน้านี้ ถ้ามีคำสั่งจากหน้าเว็บ (บรรทัดขึ้นต้น @) จะเข้าโหมดเว็บ (calib_remote.cpp)
 // ════════════════════════════════════════════════════════════════
 #include "calib_common.h"
 #include "../version.h"
+#include "calib_pid.h"
+#include "calib_remote.h"
 
 static const char *calib_menuItems[CALIB_MENU_ITEMS] = {
     "Spin motors",
@@ -23,7 +27,8 @@ static const char *calib_menuItems[CALIB_MENU_ITEMS] = {
     "LED test",
     "Count ticks",
     "Network info",
-    "SSH login"
+    "SSH login",
+    "PID tune"
 };
 
 static int calib_showMenu() {
@@ -53,6 +58,7 @@ static int calib_showMenu() {
         }
         display.display();
         if (calib_btnPressed()) return sel;
+        if (calib_remotePoll()) continue;   // กลับจากโหมดเว็บ → วาดเมนูใหม่
         delay(40);
     }
 }
@@ -68,6 +74,7 @@ void runCalibration() {
         case 6: calib_runCountTicks();  break;
         case 7: calib_runNetInfo();     break;
         case 8: calib_runSshInfo();     break;
+        case 9: calib_runPidTune();     break;
         default: break;
     }
 }

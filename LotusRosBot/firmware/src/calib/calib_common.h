@@ -5,6 +5,7 @@
 //  ไม่มี micro-ROS และไม่ใช้ Serial — ทุกอย่างแสดงบน OLED
 //    POT  GPIO35 — เลื่อนเมนู / คุม servo / เลื่อนผล
 //    BTN  GPIO27 — ยืนยัน / หยุด (เมนู 5: กดค้าง 3 วินาที = ออก)
+//  หรือสั่งจากหน้าเว็บบน Jetson: python3 ~/LotusRosDev_Bot/tools/lrb_calib_web.py → http://<IP Jetson>:8091
 // ════════════════════════════════════════════════════════════════
 #ifndef LRB_CALIB_COMMON_H
 #define LRB_CALIB_COMMON_H
@@ -16,7 +17,7 @@
 #define CALIB_SAMPLE_TIME    20      // วินาที ต่อการวัด CPR 1 ครั้ง
 #define CALIB_CPR5_ROUNDS     5      // จำนวนรอบของเมนู CPR x5
 #define CALIB_WARN_STDDEV    20.0f   // เตือนถ้าค่าแกว่งเกินนี้
-#define CALIB_MENU_ITEMS      9
+#define CALIB_MENU_ITEMS     10
 #define CALIB_HAND_REVS      10      // หมุนล้อด้วยมือกี่รอบ (เมนู 7)
 #define CALIB_OLED_ROWS       4
 #define CALIB_OLED_ROW_H     12
@@ -57,6 +58,7 @@ void calib_runLEDTest();       // 6  calib_io.cpp
 void calib_runCountTicks();    // 7  calib_motor.cpp
 void calib_runNetInfo();       // 8  calib_network.cpp
 void calib_runSshInfo();       // 9  calib_network.cpp
+// 10 PID tune → calib_pid.h (calib_runPidTune) · คำสั่งจากหน้าเว็บ → calib_remote.h
 
 void runCalibration();         // calib_menu.cpp — เรียกจาก loop() ในโหมดคาลิเบรต
 

@@ -6,6 +6,7 @@
 #include "kinematics.h"
 #include "pid.h"
 #include "odometry.h"
+#include <Preferences.h>
 
 #define ENCODER_USE_INTERRUPTS
 #define ENCODER_OPTIMIZE_INTERRUPTS
@@ -21,6 +22,9 @@ static Motor motor2_controller(PWM_FREQUENCY, PWM_BITS, MOTOR2_INV, MOTOR2_PWM, 
 static PID motor1_pid(PWM_MIN, PWM_MAX, K_P_L, K_I_L, K_D_L);
 static PID motor2_pid(PWM_MIN, PWM_MAX, K_P_R, K_I_R, K_D_R);
 
+static float pid_gain[2][3] = { {K_P_L, K_I_L, K_D_L}, {K_P_R, K_I_R, K_D_R} };
+static bool  pid_from_nvs = false;
+
 static Kinematics kinematics(
     Kinematics::ROBOT_BASE,
     MOTOR_MAX_RPM,
@@ -32,6 +36,7 @@ static Kinematics kinematics(
 static Odometry odometry;
 
 static Motor   *motors[2]   = {&motor1_controller, &motor2_controller};
+static PID     *pids[2]     = {&motor1_pid,        &motor2_pid};
 static Encoder *encoders[2] = {&motor1_encoder,    &motor2_encoder};
 
 // ── สถานะ ────────────────────────────────────────────────────
@@ -104,4 +109,68 @@ float   baseMaxRPM()                         { return kinematics.getMaxRPM(); }
 float   baseLinearAt(float rpm) {
     Kinematics::velocities v = kinematics.getVelocities(rpm, rpm, 0, 0);
     return v.linear_x;
+}
+
+// ── PID: อ่าน/ตั้ง/บันทึก ─────────────────────────────────────
+void basePidGet(int m, float &kp, float &ki, float &kd) {
+    kp = pid_gain[m][0]; ki = pid_gain[m][1]; kd = pid_gain[m][2];
+}
+
+void basePidSet(int m, float kp, float ki, float kd) {
+    pid_gain[m][0] = kp; pid_gain[m][1] = ki; pid_gain[m][2] = kd;
+    pids[m]->updateConstants(kp, ki, kd);
+    pids[m]->reset();
+}
+
+bool basePidFromSaved() { return pid_from_nvs; }
+
+bool basePidLoadSaved() {
+    Preferences p;
+    p.begin("lrbpid", true);
+    bool has = p.getBool("set", false);
+    if (has) {
+        basePidSet(0, p.getFloat("kp1", K_P_L), p.getFloat("ki1", K_I_L), p.getFloat("kd1", K_D_L));
+        basePidSet(1, p.getFloat("kp2", K_P_R), p.getFloat("ki2", K_I_R), p.getFloat("kd2", K_D_R));
+    }
+    p.end();
+    pid_from_nvs = has;
+    return has;
+}
+
+void basePidSave() {
+    Preferences p;
+    p.begin("lrbpid", false);
+    p.putFloat("kp1", pid_gain[0][0]); p.putFloat("ki1", pid_gain[0][1]); p.putFloat("kd1", pid_gain[0][2]);
+    p.putFloat("kp2", pid_gain[1][0]); p.putFloat("ki2", pid_gain[1][1]); p.putFloat("kd2", pid_gain[1][2]);
+    p.putBool("set", true);
+    p.end();
+    pid_from_nvs = true;
+}
+
+void basePidClearSaved() {
+    Preferences p;
+    p.begin("lrbpid", false);
+    p.clear();
+    p.end();
+    basePidSet(0, K_P_L, K_I_L, K_D_L);
+    basePidSet(1, K_P_R, K_I_R, K_D_R);
+    pid_from_nvs = false;
+}
+
+void basePidResetState() { motor1_pid.reset(); motor2_pid.reset(); }
+
+void baseClosedLoop(float tgt_rpm1, float tgt_rpm2, float &rpm1, float &rpm2, int &pwm1, int &pwm2) {
+    rpm1 = motor1_encoder.getRPM();
+    rpm2 = motor2_encoder.getRPM();
+    last_rpm1 = rpm1; last_rpm2 = rpm2;
+    if (tgt_rpm1 == 0.0f && tgt_rpm2 == 0.0f) {       // เหมือน moveBase: เป้าเป็นศูนย์ทั้งคู่ = เบรก
+        motor1_controller.brake(); motor2_controller.brake();
+        motor1_pid.reset(); motor2_pid.reset();
+        pwm1 = pwm2 = 0;
+        return;
+    }
+    pwm1 = (int)motor1_pid.compute(tgt_rpm1, rpm1);
+    pwm2 = (int)motor2_pid.compute(tgt_rpm2, rpm2);
+    motor1_controller.spin(pwm1);
+    motor2_controller.spin(pwm2);
 }

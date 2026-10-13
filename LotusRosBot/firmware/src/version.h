@@ -2,5 +2,5 @@
 #ifndef LRB_VERSION_H
 #define LRB_VERSION_H
 #define LRB_NAME        "LotusRosBot"
-#define LRB_FW_VERSION  "v2026.10.14b"
+#define LRB_FW_VERSION  "v2026.10.14c"
 #endif

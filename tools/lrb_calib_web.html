@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LotusRosBot คาลิเบรต + จูน PID</title>
+<!-- หน้าเว็บของ tools/lrb_calib_web.py · http://nano.local:8091 -->
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--ink:#14213d;--dim:#5b6475;--line:#d5dbe6;--btn:#e8eef8;--on:#2563eb;--stop:#dc2626;--ok:#15803d;--warn:#b45309;--L:#2563eb;--R:#ea580c;--tg:#64748b}
+@media (prefers-color-scheme:dark){:root{--bg:#0f172a;--card:#16213a;--ink:#e6ecf7;--dim:#9aa6bd;--line:#2c3a57;--btn:#22304d;--on:#3b82f6;--stop:#ef4444;--ok:#4ade80;--warn:#fbbf24;--L:#60a5fa;--R:#fb923c;--tg:#94a3b8}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,"Noto Sans Thai",sans-serif;padding:12px}
+h1{font-size:19px;margin:0 0 6px}
+h2{font-size:16px;margin:0 0 8px;display:flex;gap:8px;align-items:center}
+h2 small{font-weight:400;color:var(--dim);font-size:12px}
+.wrap{max-width:1100px;margin:0 auto;display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(330px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.wide{grid-column:1/-1}
+button{font:inherit;border:0;border-radius:10px;padding:7px 12px;background:var(--btn);color:var(--ink);cursor:pointer}
+button.pri{background:var(--on);color:#fff}button.red{background:var(--stop);color:#fff}
+button:disabled{opacity:.4;cursor:not-allowed}
+input[type=number]{width:78px;font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+select{font:inherit;padding:4px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+#st{padding:6px 10px;border-radius:8px;background:var(--btn);font-size:14px}
+#st.ok{color:var(--ok)}#st.bad{color:var(--stop)}#st.warn{color:var(--warn)}
+.safe{display:flex;gap:8px;align-items:center;font-weight:600;padding:6px 10px;border:2px dashed var(--warn);border-radius:10px}
+.safe input{width:20px;height:20px}
+.kv{display:grid;grid-template-columns:110px 1fr 70px;gap:4px 8px;align-items:center;font-size:14px}
+.bar{height:10px;background:var(--btn);border-radius:6px;overflow:hidden}.bar i{display:block;height:100%;background:var(--on)}
+.num{font-variant-numeric:tabular-nums;text-align:right}
+.pad{display:grid;grid-template-columns:repeat(3,64px);gap:6px;justify-content:start}
+.pad button{height:56px;font-size:22px}
+table{border-collapse:collapse;font-size:14px}td,th{padding:4px 8px;border-bottom:1px solid var(--line);text-align:center}
+canvas{width:100%;height:260px;background:var(--bg);border:1px solid var(--line);border-radius:10px}
+.dim{color:var(--dim);font-size:13px}
+.leg span{display:inline-block;width:16px;height:3px;vertical-align:middle;margin:0 4px 0 10px}
+textarea{width:100%;font:13px ui-monospace,monospace;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+#log{font:12px ui-monospace,monospace;max-height:140px;overflow:auto;white-space:pre-wrap;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="card wide">
+  <h1>🔧 LotusRosBot — คาลิเบรต + จูน PID <small class="dim" id="fw"></small></h1>
+  <div class="row">
+    <button class="pri" id="bConn">เชื่อมต่อบอร์ด</button>
+    <button id="bDisc">ตัดการเชื่อมต่อ (กลับโหมด ROS2)</button>
+    <div id="st">กำลังโหลด…</div>
+  </div>
+  <label class="safe"><input type="checkbox" id="safe"> ล้อลอยจากพื้นแล้ว และมีคนเฝ้าหุ่น (ต้องติ๊กก่อนหมุนมอเตอร์)</label>
+  <p class="dim">ใช้สาย USB เดียวกับ micro-ROS — ปิด agent/ภารกิจก่อน (<code>bash ~/stop.sh all</code>) · ปุ่ม BTN บนบอร์ด = หยุดทุกอย่าง · มอเตอร์หยุดเองถ้าหน้านี้เงียบเกิน 0.3 วินาที</p>
+</div>
+
+<div class="card">
+  <h2>📟 สถานะสด <small>(เมนู 5)</small></h2>
+  <div class="kv">
+    <span>POT (GPIO35)</span><div class="bar"><i id="vPotB"></i></div><span class="num" id="vPot">–</span>
+    <span>IR ซ้าย (39)</span><div class="bar"><i id="vIrlB"></i></div><span class="num" id="vIrl">–</span>
+    <span>IR ขวา (36)</span><div class="bar"><i id="vIrrB"></i></div><span class="num" id="vIrr">–</span>
+    <span>ปุ่ม BTN</span><span id="vBtn">–</span><span></span>
+    <span>encoder ซ้าย</span><span class="num" id="vE1">–</span><span class="num" id="vR1">–</span>
+    <span>encoder ขวา</span><span class="num" id="vE2">–</span><span class="num" id="vR2">–</span>
+    <span>LED / มอเตอร์</span><span id="vLed">–</span><span></span>
+  </div>
+</div>
+
+<div class="card">
+  <h2>⚙️ มอเตอร์ <small>(เมนู 1 · กดค้าง)</small></h2>
+  <div class="row">PWM <input type="range" id="pwm" min="150" max="1023" step="1" value="400" style="flex:1"> <b id="pwmV" class="num">400</b></div>
+  <div class="pad">
+    <span></span><button data-m="1,1">▲</button><span></span>
+    <button data-m="0,1" title="ล้อขวาอย่างเดียว">◀</button><button class="red" id="bStop">■</button><button data-m="1,0" title="ล้อซ้ายอย่างเดียว">▶</button>
+    <span></span><button data-m="-1,-1">▼</button><span></span>
+  </div>
+  <p class="dim">▲ สองล้อเดินหน้า · ◀ ล้อขวาอย่างเดียว · ▶ ล้อซ้ายอย่างเดียว · ถ้าล้อหมุนกลับทิศ แก้ <code>MOTOR1_INV / MOTOR2_INV</code></p>
+</div>
+
+<div class="card">
+  <h2>🔢 นับ tick → CPR <small>(เมนู 7)</small></h2>
+  <div class="row"><button id="bZero">ล้างตัวนับ</button> หมุนล้อด้วยมือ <input type="number" id="revs" value="10" min="1" step="1"> รอบ</div>
+  <table><tr><th></th><th>tick</th><th>CPR วัดได้</th><th>ในโค้ด</th></tr>
+  <tr><td>ซ้าย M1</td><td id="cT1">–</td><td id="cC1">–</td><td>958</td></tr>
+  <tr><td>ขวา M2</td><td id="cT2">–</td><td id="cC2">–</td><td>925</td></tr></table>
+</div>
+
+<div class="card">
+  <h2>💡 LED · 🔊 เสียง <small>(เมนู 6)</small></h2>
+  <div class="row"><button id="bLed1">LED ติด</button><button id="bLed0">LED ดับ</button></div>
+  <div class="row">ความถี่ <input type="number" id="bz" value="1000" min="20" max="20000"> Hz · <input type="number" id="bzms" value="150" min="1" max="1000"> ms <button id="bBeep">🔊 บี๊บ</button></div>
+</div>
+
+<div class="card">
+  <h2>🦾 Servo <small>(เมนู 4)</small></h2>
+  <label class="safe" style="border-color:var(--stop)"><input type="checkbox" id="srvSafe"> แขนกลอยู่ในท่าปลอดภัย (ยังไม่ได้คาลิเบรต — ขยับทีละน้อย)</label>
+  <div class="row">S1 หนีบ <input type="range" id="s1" min="0" max="180" value="90" style="flex:1"> <b id="s1v">90</b></div>
+  <div class="row">S2 ยก <input type="range" id="s2" min="0" max="180" value="90" style="flex:1"> <b id="s2v">90</b></div>
+  <div class="row">S3 <input type="range" id="s3" min="0" max="180" value="90" style="flex:1"> <b id="s3v">90</b></div>
+  <div class="row"><button id="bSrvSend">ส่งมุม</button><button id="bSrvOff">ปล่อย servo (detach)</button></div>
+</div>
+
+<div class="card">
+  <h2>📶 เครือข่าย <small>(เมนู 8–9 · ที่บอร์ดได้รับจาก Jetson)</small></h2>
+  <div class="kv" style="grid-template-columns:90px 1fr">
+    <span>host</span><span id="nH">–</span><span>SSID</span><span id="nS">–</span>
+    <span>IP</span><span id="nI">–</span><span>SSH</span><span id="nU">–</span><span>สถานะ</span><span id="nL">–</span>
+  </div>
+  <p class="dim">ระหว่างเชื่อมต่อหน้านี้ service lotus-netinfo หยุดส่ง (พอร์ตไม่ว่าง) — "live" จะเป็น "ไม่" ได้ ไม่ใช่ปัญหา</p>
+</div>
+
+<div class="card wide">
+  <h2>📈 จูน PID ความเร็วล้อ <small>(เมนู 10 · ทดสอบแบบขั้นบันได)</small></h2>
+  <div class="row" style="align-items:flex-start;gap:20px">
+    <table>
+      <tr><th></th><th>Kp</th><th>Ki</th><th>Kd</th></tr>
+      <tr><td style="color:var(--L)">ล้อซ้าย</td><td><input type="number" id="kpL" step="0.01" min="0"></td><td><input type="number" id="kiL" step="0.01" min="0"></td><td><input type="number" id="kdL" step="0.01" min="0"></td></tr>
+      <tr><td style="color:var(--R)">ล้อขวา</td><td><input type="number" id="kpR" step="0.01" min="0"></td><td><input type="number" id="kiR" step="0.01" min="0"></td><td><input type="number" id="kdR" step="0.01" min="0"></td></tr>
+    </table>
+    <div>
+      <label><input type="checkbox" id="same" checked> ใช้ค่าเดียวกันทั้งสองล้อ</label><br>
+      <span class="dim">ที่มา: <b id="pSrc">–</b></span>
+      <div class="row"><button class="pri" id="bApply">ใช้ค่านี้ (ทดลอง)</button><button id="bSave">💾 บันทึกลงบอร์ด</button><button id="bReset">คืนค่าในโค้ด</button></div>
+    </div>
+    <div>
+      <div class="row">ล้อ <select id="side"><option value="B">ทั้งสอง</option><option value="L">ซ้าย</option><option value="R">ขวา</option></select>
+      เป้า <input type="number" id="rpm" value="60" min="-93" max="93" step="5"> rpm · ค้าง <input type="number" id="hold" value="2000" min="300" max="5000" step="100"> ms</div>
+      <div class="row"><button class="pri" id="bStep">▶ ทดสอบ step</button><label><input type="checkbox" id="keep" checked> เก็บกราฟรอบก่อนไว้เทียบ</label> <button id="bClr">ล้างกราฟ</button></div>
+    </div>
+  </div>
+  <div class="leg dim">rpm (เฉลี่ย 100 ms):<span style="background:var(--tg)"></span>เป้า<span style="background:var(--L)"></span>ซ้าย<span style="background:var(--R)"></span>ขวา · เส้นจาง = รอบก่อน</div>
+  <canvas id="cv" width="1060" height="260"></canvas>
+  <div class="leg dim">PWM ที่ PID สั่ง (0–1023)</div>
+  <canvas id="cvp" width="1060" height="140" style="height:140px"></canvas>
+  <table id="mt" style="margin-top:8px"><tr><th>รอบ</th><th>ค่า PID (ซ้าย / ขวา)</th><th>ล้อ</th><th>ขึ้นถึง 90%</th><th>พุ่งเกิน</th><th>ขาดจากเป้า</th><th>นิ่งใน ±5%</th><th>แกว่ง</th></tr></table>
+  <details style="margin-top:8px"><summary><b>วิธีจูน (ล้อลอย)</b></summary>
+  <ol class="dim">
+    <li>ทดสอบค่าเดิมก่อน 1 รอบ (60 rpm ทั้งสองล้อ) ดูกราฟ</li>
+    <li><b>ขึ้นช้า / ไปไม่ถึง</b> → เพิ่ม Kp ทีละ ~20% · <b>สั่น/แกว่งรอบเป้า</b> → ลด Kp</li>
+    <li><b>ค้างต่ำกว่าเป้า</b> (ขาดจากเป้า &gt; 3%) → เพิ่ม Ki · <b>พุ่งเกินมาก</b> (&gt; 10%) → ลด Ki</li>
+    <li><b>พุ่งเกินแม้ Ki พอดี</b> → เพิ่ม Kd ทีละน้อย · ถ้ากราฟ PWM กระตุก → ลด Kd</li>
+    <li>ให้สองล้อมีกราฟใกล้กัน (หุ่นจะออกตัวตรง) · ลองทั้ง 30, 60, 90 rpm และค่าติดลบ (ถอย)</li>
+    <li>พอใจแล้วกด <b>💾 บันทึกลงบอร์ด</b> (ใช้ทันทีทั้งโหมด ROS2 แม้ยังไม่แก้โค้ด) แล้วคัดลอกบรรทัดด้านล่างไปใส่ <code>include/lotusrosbot_config.h</code> เพื่อเก็บถาวร</li>
+  </ol></details>
+  <p><b>คัดลอกไปใส่ <code>lotusrosbot_config.h</code></b></p>
+  <textarea id="defs" rows="7" readonly></textarea>
+</div>
+
+<div class="card wide"><h2>📝 บันทึก</h2><div id="log"></div></div>
+</div>
+
+<script>
+(function(){
+var $=function(i){return document.getElementById(i);};
+var S={connected:false,busy:false,pid:null}, pidShown=false, runs=[], runNo=0, holdTimer=null, holdDir=null;
+function show(cls,msg){var e=$('st');e.className=cls;e.textContent=msg;}
+function post(path,body){return fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})}).then(function(r){return r.json();});}
+function cmd(line){return post('api/cmd',{line:line}).then(function(j){if(j.pid&&line.indexOf('@PID')===0)setPid(j.pid);if(!j.ok&&j.msg)show('bad','⛔ '+j.msg);return j;});}
+function needSafe(){if(!$('safe').checked){show('warn','⚠️ ติ๊ก "ล้อลอย + มีคนเฝ้า" ก่อน');return false;}if(!S.connected){show('warn','⚠️ เชื่อมต่อบอร์ดก่อน');return false;}return true;}
+function f(v,d){return v==null?'–':(+v).toFixed(d==null?0:d);}
+
+// ── สถานะ ──
+function poll(){
+  fetch('api/state',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
+    S=j; $('fw').textContent=j.fw||'';
+    if(j.connected) show('ok','✅ '+j.msg);
+    else if(j.port_owner) show('warn','⚠️ '+j.port_owner);
+    else show('', j.msg||'ยังไม่เชื่อมต่อ');
+    var s=j.status||{};
+    function bar(id,v,max){$(id+'B').style.width=Math.min(100,Math.max(0,(v||0)/max*100))+'%';}
+    $('vPot').textContent=s.pot==null?'–':(s.pot*3.3/4095).toFixed(2)+'V'; bar('vPot',s.pot,4095);
+    $('vIrl').textContent=s.irl==null?'–':(s.irl*3.3/4095).toFixed(2)+'V'; bar('vIrl',s.irl,4095);
+    $('vIrr').textContent=s.irr==null?'–':(s.irr*3.3/4095).toFixed(2)+'V'; bar('vIrr',s.irr,4095);
+    $('vBtn').textContent=s.btn==null?'–':(s.btn?'🔴 กดอยู่':'⚪ ปล่อย');
+    $('vE1').textContent=f(s.enc1); $('vE2').textContent=f(s.enc2);
+    $('vR1').textContent=s.rpm1==null?'–':f(s.rpm1,1)+' rpm'; $('vR2').textContent=s.rpm2==null?'–':f(s.rpm2,1)+' rpm';
+    $('vLed').textContent=s.led==null?'–':((s.led?'LED ติด':'LED ดับ')+' · '+(s.motor?'มอเตอร์หมุน':'มอเตอร์หยุด'));
+    var rv=+$('revs').value||1;
+    $('cT1').textContent=f(s.enc1); $('cT2').textContent=f(s.enc2);
+    $('cC1').textContent=s.enc1==null?'–':Math.abs(s.enc1/rv).toFixed(0); $('cC2').textContent=s.enc2==null?'–':Math.abs(s.enc2/rv).toFixed(0);
+    var n=j.net; if(n){$('nH').textContent=n.host||'–';$('nS').textContent=n.ssid||'–';$('nI').textContent=n.ip||'–';$('nU').textContent=n.user?('ssh '+n.user+'@'+n.ip):'–';$('nL').textContent=n.live?'live':'ไม่ (ไม่ได้รับใน 10 วิ)';}
+    if(j.pid&&!pidShown){setPid(j.pid);pidShown=true;}
+    $('log').textContent=(j.log||[]).slice().reverse().join('\n');
+    ['bStep','bApply','bSave','bReset','bZero','bLed1','bLed0','bBeep','bSrvSend','bSrvOff'].forEach(function(b){$(b).disabled=!j.connected||j.busy;});
+    $('bConn').disabled=j.connected; $('bDisc').disabled=!j.connected;
+  }).catch(function(){show('bad','⛔ ติดต่อเซิร์ฟเวอร์ไม่ได้ — รัน python3 ~/LotusRosDev_Bot/tools/lrb_calib_web.py');});
+}
+setInterval(poll,500); poll();
+
+$('bConn').onclick=function(){show('warn','⏳ กำลังรีเซ็ตบอร์ดและเข้าโหมดคาลิเบรต (ไม่เกิน 10 วินาที)…');post('api/connect').then(function(j){show(j.ok?'ok':'bad',(j.ok?'✅ ':'⛔ ')+j.msg);pidShown=false;});};
+$('bDisc').onclick=function(){post('api/disconnect').then(function(j){show('',j.msg);});};
+
+// ── มอเตอร์: กดค้าง ส่งซ้ำทุก 100 ms ──
+$('pwm').oninput=function(){$('pwmV').textContent=this.value;};
+function motorSend(){if(!holdDir)return;var p=+$('pwm').value;cmd('@MOTOR '+Math.round(holdDir[0]*p)+' '+Math.round(holdDir[1]*p));}
+function motorStop(){if(holdTimer){clearInterval(holdTimer);holdTimer=null;}if(holdDir){holdDir=null;cmd('@STOP');}}
+document.querySelectorAll('button[data-m]').forEach(function(b){
+  b.addEventListener('pointerdown',function(e){e.preventDefault();if(!needSafe())return;holdDir=b.dataset.m.split(',').map(Number);motorSend();holdTimer=setInterval(motorSend,100);});
+  ['pointerup','pointerleave','pointercancel'].forEach(function(ev){b.addEventListener(ev,motorStop);});
+});
+$('bStop').onclick=function(){holdDir=null;if(holdTimer){clearInterval(holdTimer);holdTimer=null;}cmd('@STOP');};
+window.addEventListener('blur',motorStop);
+
+$('bZero').onclick=function(){cmd('@ENCZERO');};
+$('bLed1').onclick=function(){cmd('@LED 1');}; $('bLed0').onclick=function(){cmd('@LED 0');};
+$('bBeep').onclick=function(){cmd('@BEEP '+Math.round(+$('bz').value)+' '+Math.round(+$('bzms').value));};
+['s1','s2','s3'].forEach(function(i){$(i).oninput=function(){$(i+'v').textContent=this.value;};});
+$('bSrvSend').onclick=function(){if(!$('srvSafe').checked){show('warn','⚠️ ติ๊กยืนยันท่าปลอดภัยของแขนกลก่อน');return;}cmd('@SERVO '+$('s1').value+' '+$('s2').value+' '+$('s3').value);};
+$('bSrvOff').onclick=function(){cmd('@SERVOOFF');};
+
+// ── PID ──
+function setPid(p){S.pid=p;
+  ['L','R'].forEach(function(w){['kp','ki','kd'].forEach(function(k,i){$(k+w).value=p[w][i];});});
+  $('pSrc').textContent=p.src==='nvs'?'บันทึกไว้ในบอร์ด (NVS)':'ค่าในโค้ด (lotusrosbot_config.h)';
+  var L=p.L,R=p.R;
+  $('defs').value='#define K_P_L   '+L[0].toFixed(3)+'\n#define K_I_L   '+L[1].toFixed(3)+'\n#define K_D_L   '+L[2].toFixed(3)+'\n\n#define K_P_R   '+R[0].toFixed(3)+'\n#define K_I_R   '+R[1].toFixed(3)+'\n#define K_D_R   '+R[2].toFixed(3);
+}
+['kpL','kiL','kdL'].forEach(function(id){$(id).addEventListener('input',function(){if($('same').checked)$(id.replace('L','R')).value=this.value;});});
+$('bApply').onclick=function(){
+  var g=function(w){return [+$('kp'+w).value,+$('ki'+w).value,+$('kd'+w).value];};
+  var L=g('L'),R=g('R');
+  if(L.concat(R).some(function(v){return !(v>=0&&v<50);})){show('bad','⛔ ค่า PID ต้องอยู่ระหว่าง 0–50');return;}
+  cmd('@PIDSET L '+L.join(' ')).then(function(){return cmd('@PIDSET R '+R.join(' '));}).then(function(){show('ok','✅ ใช้ค่าใหม่แล้ว (ยังไม่บันทึก — รีบูตแล้วกลับค่าเดิม)');});
+};
+$('bSave').onclick=function(){if(!confirm('บันทึกค่า PID ที่ใช้อยู่ลงบอร์ด? (ใช้ทันทีในโหมด ROS2 หลังรีบูต)'))return;cmd('@PIDSAVE').then(function(){return cmd('@PIDGET');}).then(function(){show('ok','💾 บันทึกลงบอร์ดแล้ว');});};
+$('bReset').onclick=function(){if(!confirm('ลบค่าที่บันทึกในบอร์ด แล้วกลับไปใช้ค่าในโค้ด?'))return;cmd('@PIDRESET');};
+
+$('bStep').onclick=function(){
+  if(!needSafe())return;
+  show('warn','⏳ กำลังทดสอบ… (กด BTN บนบอร์ดเพื่อหยุด)');
+  post('api/step',{side:$('side').value,rpm:+$('rpm').value,hold:+$('hold').value}).then(function(j){
+    if(!j.data||!j.data.t||!j.data.t.length){show('bad','⛔ '+(j.msg||'ไม่ได้ข้อมูล'));return;}
+    runNo++; j.no=runNo;
+    if(!$('keep').checked)runs=[]; runs.push(j); runs=runs.slice(-3);
+    draw(); addRow(j); show(j.ok?'ok':'warn',(j.ok?'✅ ':'⚠️ ')+j.msg);
+  });
+};
+$('bClr').onclick=function(){runs=[];draw();};
+
+function addRow(j){
+  var p=j.pid||{L:[0,0,0],R:[0,0,0]};
+  function pp(a){return a.map(function(v){return (+v).toFixed(2);}).join('/');}
+  ['L','R'].forEach(function(w){var m=j.data.metrics[w];if(!m)return;
+    var tr=document.createElement('tr');
+    var cells=['#'+j.no+' '+j.side+' '+j.rpm+'rpm', pp(p.L)+' · '+pp(p.R), w==='L'?'ซ้าย':'ขวา',
+      m.rise_ms==null?'ไม่ถึง':m.rise_ms+' ms', f(m.overshoot_pct,1)+'%', f(m.ss_err_pct,1)+'%',
+      m.settle_ms==null?'ไม่นิ่ง':m.settle_ms+' ms', f(m.ripple_pct,1)+'%'];
+    cells.forEach(function(c,i){var td=document.createElement('td');td.textContent=c;if(i===2)td.style.color=w==='L'?'var(--L)':'var(--R)';tr.appendChild(td);});
+    $('mt').appendChild(tr);});
+}
+
+function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
+function draw(){
+  [['cv','rpm'],['cvp','pwm']].forEach(function(spec){
+    var c=$(spec[0]),x=c.getContext('2d'),W=c.width,H=c.height,pad=34;
+    x.clearRect(0,0,W,H);
+    if(!runs.length)return;
+    var tmax=0,ymax=10,ymin=0;
+    runs.forEach(function(r){var d=r.data;tmax=Math.max(tmax,d.t[d.t.length-1]);
+      (spec[1]==='rpm'?d.tgt.concat(d.rpm1,d.rpm2):d.pwm1.concat(d.pwm2)).forEach(function(v){ymax=Math.max(ymax,v);ymin=Math.min(ymin,v);});});
+    ymax*=1.1; if(ymin<0)ymin*=1.1;
+    function X(t){return pad+(W-pad-8)*t/tmax;} function Y(v){return H-18-(H-26)*(v-ymin)/(ymax-ymin);}
+    x.strokeStyle=css('--line');x.fillStyle=css('--dim');x.font='11px sans-serif';x.lineWidth=1;
+    for(var k=0;k<=4;k++){var v=ymin+(ymax-ymin)*k/4;x.beginPath();x.moveTo(pad,Y(v));x.lineTo(W-8,Y(v));x.stroke();x.fillText(v.toFixed(0),2,Y(v)+4);}
+    for(var t=0;t<=tmax;t+=500){x.fillText((t/1000).toFixed(1)+'s',X(t)-8,H-4);}
+    runs.forEach(function(r,ri){var d=r.data,last=ri===runs.length-1;x.globalAlpha=last?1:0.3;
+      var series=spec[1]==='rpm'?[['--tg',d.tgt,true],['--L',d.rpm1s||d.rpm1],['--R',d.rpm2s||d.rpm2]]:[['--L',d.pwm1],['--R',d.pwm2]];
+      series.forEach(function(s){if((s[0]==='--L'&&r.side==='R')||(s[0]==='--R'&&r.side==='L'))return;
+        x.strokeStyle=css(s[0]);x.lineWidth=last?2:1.5;x.setLineDash(s[2]?[6,4]:[]);x.beginPath();
+        d.t.forEach(function(t,i){var px=X(t),py=Y(s[1][i]);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();});
+      x.setLineDash([]);});
+    x.globalAlpha=1;
+  });
+}
+})();
+</script>
+</body>
+</html>

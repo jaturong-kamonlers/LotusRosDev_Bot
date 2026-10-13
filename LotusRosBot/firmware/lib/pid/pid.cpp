@@ -32,6 +32,13 @@ double PID::compute(float setpoint, float measured_value)
     //setpoint is constrained between min and max to prevent pid from having too much error
     error = setpoint - measured_value;
     integral_ += error;
+    // [LotusRosBot 2026-10-13] anti-windup: จำกัดผลรวมความผิดพลาดไม่ให้ ki × integral เกินช่วง PWM
+    //   เดิมถ้าสั่งเร็วเกินที่มอเตอร์ทำได้ (PWM ชนเพดาน) integral สะสมไม่หยุด → ลดความเร็วแล้วพุ่งเกินแรง
+    if (ki_ > 0.0f) {
+        double lim = max_val_ / ki_;
+        if (integral_ >  lim) integral_ =  lim;
+        if (integral_ < -lim) integral_ = -lim;
+    }
     derivative_ = error - prev_error_;
 
     if(setpoint == 0 && error == 0)

@@ -26,4 +26,16 @@ void    baseEncWrite(int m, int32_t ticks);
 float   baseMaxRPM();
 float   baseLinearAt(float rpm);  // ความเร็วเดินหน้า (m/s) เมื่อทั้งสองล้อหมุน rpm นี้
 
+// ── PID ของล้อ (จูนจากเมนู 10 / หน้าเว็บ) — m = 0 ซ้าย, 1 ขวา ──────────
+//   ค่าเริ่มต้นจาก lotusrosbot_config.h · ถ้าเคยกด "บันทึกลงบอร์ด" จะใช้ค่าใน NVS แทน (โหลดตอนบูต)
+void basePidGet(int m, float &kp, float &ki, float &kd);
+void basePidSet(int m, float kp, float ki, float kd);   // ใช้ทันที (ยังไม่บันทึก)
+bool basePidLoadSaved();          // เรียกใน setup() · true = ใช้ค่าที่บันทึกไว้
+bool basePidFromSaved();          // ค่าที่ใช้อยู่มาจาก NVS ไหม
+void basePidSave();               // บันทึกค่าปัจจุบันลง NVS (ใช้ต่อหลังรีบูต ทั้งโหมด ROS2)
+void basePidClearSaved();         // ลบค่าที่บันทึก → กลับไปใช้ค่าใน config
+void basePidResetState();         // ล้าง integral (ก่อนทดสอบแต่ละรอบ)
+void baseClosedLoop(float tgt_rpm1, float tgt_rpm2,
+                    float &rpm1, float &rpm2, int &pwm1, int &pwm2);   // PID 1 รอบ (เรียกทุก 20 ms)
+
 #endif
