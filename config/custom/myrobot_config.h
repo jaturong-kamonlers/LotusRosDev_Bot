@@ -1,3 +1,6 @@
+// ⚠️ ตั้งแต่ 2026-10-13 (v2026.10.14b) เฟิร์มแวร์หลักคือ LotusRosBot — แก้ค่าที่
+//    ~/LotusRosDev_Bot/LotusRosBot/firmware/include/lotusrosbot_config.h
+//    ไฟล์นี้ใช้เฉพาะเฟิร์มแวร์เดิม (FW_OLD=1 bash tools/flash.sh ...)
 // =============================================================================
 //  myrobot_config.h — LotusRosDev Bot Configuration
 //  บอร์ด: ESP32 DevKit V1 30-pin

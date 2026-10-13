@@ -10,7 +10,7 @@ calib_drive.py — ทดสอบจูนฐานล้อ LotusRosDev_Bot (�
   python3 ~/calib_drive.py step --speed 0.15 --time 3     # ความเร็วคงที่ บันทึก CSV → ดูการตอบสนอง PID
 
 ⚠️ ทุกโหมดที่ขยับหุ่นต้องมีคนเฝ้า · พื้นที่ว่าง · กด Ctrl+C = หยุดทันที (หุ่นหยุดเองใน 200 ms ด้วย)
-ค่าที่ได้ → ใส่ใน ~/LotusRosDev_Bot/config/custom/myrobot_config.h แล้ว build + flash (ไม่มีการแก้ไฟล์อัตโนมัติ)
+ค่าที่ได้ → ใส่ใน ~/LotusRosDev_Bot/LotusRosBot/firmware/include/lotusrosbot_config.h แล้ว build + flash (ไม่มีการแก้ไฟล์อัตโนมัติ)
 """
 import argparse, csv, math, os, re, sys, time
 import rclpy
@@ -18,12 +18,14 @@ from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry
 
-CONFIG = os.path.expanduser('~/LotusRosDev_Bot/config/custom/myrobot_config.h')
+CONFIG = os.path.expanduser('~/LotusRosDev_Bot/LotusRosBot/firmware/include/lotusrosbot_config.h')
+if not os.path.exists(CONFIG):   # เฟิร์มแวร์เก่า (ก่อน v2026.10.14b)
+    CONFIG = os.path.expanduser('~/LotusRosDev_Bot/config/custom/myrobot_config.h')
 MAX_LIN, MAX_ANG = 0.25, 1.2          # เพดานความปลอดภัย (m/s, rad/s)
 
 
 def read_config(path=CONFIG):
-    """อ่านค่าปัจจุบันจาก myrobot_config.h (ถ้าไม่มีไฟล์ใช้ค่าเริ่มต้นของหุ่น)"""
+    """อ่านค่าปัจจุบันจาก lotusrosbot_config.h (ถ้าไม่มีไฟล์ใช้ค่าเริ่มต้นของหุ่น)"""
     v = {'WHEEL_DIAMETER': 0.07, 'LR_WHEELS_DISTANCE': 0.21, 'COUNTS_PER_REV1': 958, 'COUNTS_PER_REV2': 925}
     try:
         txt = open(path, encoding='utf-8').read()
@@ -220,7 +222,7 @@ def main():
     ap.add_argument('--lateral', type=float, default=None, help='straight: เบี้ยว cm (ซ้าย +)')
     ap.add_argument('--csv', default=None, help='step: ไฟล์ CSV ปลายทาง')
     ap.add_argument('--odom', default='/odom/unfiltered', help='topic odom จากล้อ')
-    ap.add_argument('--config', default=CONFIG, help='ไฟล์ myrobot_config.h')
+    ap.add_argument('--config', default=CONFIG, help='ไฟล์ lotusrosbot_config.h')
     ap.add_argument('--yes', action='store_true', help='ข้ามการยืนยัน (ต้องมีคนเฝ้าอยู่แล้ว)')
     args = ap.parse_args()
     if args.speed is None:
