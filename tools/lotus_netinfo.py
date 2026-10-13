@@ -87,8 +87,8 @@ def main():
             ip, ssid, psk = '0.0.0.0', '(no network)', '-'
         user, spw = ssh_login()
         line = f'NET\t{host}\t{ssid}\t{psk}\t{ip}\t{user}\t{spw}\n'.encode('utf-8', 'replace')
+        s = serial.Serial()
         try:
-            s = serial.Serial()
             s.port, s.baudrate, s.timeout, s.write_timeout = PORT, 115200, 0.2, 0.5
             # v2026.10.13: ห้ามตั้ง s.dtr / s.rts — pyserial จะสั่ง DTR แล้วตามด้วย RTS แยก 2 จังหวะ
             #   ระหว่างนั้นขา EN ของ ESP32 ถูกดึงต่ำ → รีเซ็ต + บี๊บ (วัดได้ 2/108 ครั้ง)
@@ -102,6 +102,14 @@ def main():
                 last = (host, ssid, ip, user)
         except Exception as e:
             print('serial error:', e, flush=True)
+        finally:
+            # 2026-10-13: ต้องปิดพอร์ตเสมอ — เดิมถ้า write timeout พอร์ตค้างเปิดใน service นี้เอง
+            #   แล้ว port_busy() (fuser) เห็นตัวเองถือพอร์ต → ไม่ส่งอีกเลย → OLED เมนู 8–9 ขึ้น "No data"
+            if s.is_open:
+                try:
+                    s.close()
+                except Exception:
+                    pass
 
 
 if __name__ == '__main__':
