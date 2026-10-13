@@ -36,6 +36,11 @@ canvas{width:100%;height:260px;background:var(--bg);border:1px solid var(--line)
 .dim{color:var(--dim);font-size:13px}
 .leg span{display:inline-block;width:16px;height:3px;vertical-align:middle;margin:0 4px 0 10px}
 textarea{width:100%;font:13px ui-monospace,monospace;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.nav a{display:inline-block;margin:2px;padding:3px 9px;border-radius:999px;background:var(--btn);color:var(--ink);text-decoration:none;font-size:13px}
+.prog{height:8px;background:var(--btn);border-radius:6px;overflow:hidden;margin:6px 0}.prog i{display:block;height:100%;background:var(--ok)}
+.cfg{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}.cfg fieldset{border:1px solid var(--line);border-radius:10px}.cfg label{display:grid;grid-template-columns:1fr 110px;gap:6px;align-items:center;font-size:13px;margin:4px 0}.cfg label small{display:block;color:var(--dim)}
+pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;max-height:260px;overflow:auto;white-space:pre-wrap}
+.chg{color:var(--warn);font-weight:600}
 #log{font:12px ui-monospace,monospace;max-height:140px;overflow:auto;white-space:pre-wrap;color:var(--dim)}
 </style>
 </head>
@@ -49,11 +54,12 @@ textarea{width:100%;font:13px ui-monospace,monospace;border-radius:8px;border:1p
     <button id="bDisc">ตัดการเชื่อมต่อ (กลับโหมด ROS2)</button>
     <div id="st">กำลังโหลด…</div>
   </div>
+  <div class="nav">เมนู: <a href="#m1">1 มอเตอร์</a><a href="#m23">2–3 CPR อัตโนมัติ</a><a href="#m4">4 Servo</a><a href="#m5">5 สถานะสด</a><a href="#m6">6 LED/เสียง</a><a href="#m7">7 นับ tick</a><a href="#m89">8–9 เครือข่าย</a><a href="#m10">10 จูน PID</a><a href="#guide">📖 อ่านกราฟ PID</a><a href="#cfgp">⚙️ ค่าหุ่น + อัปโหลด</a></div>
   <label class="safe"><input type="checkbox" id="safe"> ล้อลอยจากพื้นแล้ว และมีคนเฝ้าหุ่น (ต้องติ๊กก่อนหมุนมอเตอร์)</label>
   <p class="dim">ใช้สาย USB เดียวกับ micro-ROS — ปิด agent/ภารกิจก่อน (<code>bash ~/stop.sh all</code>) · ปุ่ม BTN บนบอร์ด = หยุดทุกอย่าง · มอเตอร์หยุดเองถ้าหน้านี้เงียบเกิน 0.3 วินาที</p>
 </div>
 
-<div class="card">
+<div class="card" id="m5">
   <h2>📟 สถานะสด <small>(เมนู 5)</small></h2>
   <div class="kv">
     <span>POT (GPIO35)</span><div class="bar"><i id="vPotB"></i></div><span class="num" id="vPot">–</span>
@@ -66,7 +72,7 @@ textarea{width:100%;font:13px ui-monospace,monospace;border-radius:8px;border:1p
   </div>
 </div>
 
-<div class="card">
+<div class="card" id="m1">
   <h2>⚙️ มอเตอร์ <small>(เมนู 1 · กดค้าง)</small></h2>
   <div class="row">PWM <input type="range" id="pwm" min="150" max="1023" step="1" value="400" style="flex:1"> <b id="pwmV" class="num">400</b></div>
   <div class="pad">
@@ -77,7 +83,7 @@ textarea{width:100%;font:13px ui-monospace,monospace;border-radius:8px;border:1p
   <p class="dim">▲ สองล้อเดินหน้า · ◀ ล้อขวาอย่างเดียว · ▶ ล้อซ้ายอย่างเดียว · ถ้าล้อหมุนกลับทิศ แก้ <code>MOTOR1_INV / MOTOR2_INV</code></p>
 </div>
 
-<div class="card">
+<div class="card" id="m7">
   <h2>🔢 นับ tick → CPR <small>(เมนู 7)</small></h2>
   <div class="row"><button id="bZero">ล้างตัวนับ</button> หมุนล้อด้วยมือ <input type="number" id="revs" value="10" min="1" step="1"> รอบ</div>
   <table><tr><th></th><th>tick</th><th>CPR วัดได้</th><th>ในโค้ด</th></tr>
@@ -85,13 +91,22 @@ textarea{width:100%;font:13px ui-monospace,monospace;border-radius:8px;border:1p
   <tr><td>ขวา M2</td><td id="cT2">–</td><td id="cC2">–</td><td>925</td></tr></table>
 </div>
 
-<div class="card">
+<div class="card" id="m23">
+  <h2>🔄 CPR อัตโนมัติ <small>(เมนู 2–3 · มอเตอร์หมุนเต็มกำลัง)</small></h2>
+  <div class="row">หมุนล้อละ <input type="number" id="cprSec" value="20" min="5" max="30"> วินาที · <select id="cprRounds"><option value="1">1 รอบ (เมนู 2)</option><option value="5">5 รอบ สลับล้อ (เมนู 3)</option></select></div>
+  <div class="row"><button class="pri" id="bCpr">▶ เริ่มวัด</button><button class="red" id="bCprStop">■ หยุด</button></div>
+  <div class="prog"><i id="cprProg" style="width:0"></i></div>
+  <table id="cprT"><tr><th>รอบ</th><th>ซ้าย tick</th><th>CPR ประมาณ</th><th>rpm จริง</th><th>ขวา tick</th><th>CPR ประมาณ</th><th>rpm จริง</th></tr></table>
+  <p class="dim">CPR ที่ได้เป็น<b>ค่าประมาณ</b> (คิดจาก rpm ตามสเปก × แรงดัน) — ค่าที่แม่นใช้เมนู 7 · ที่มีประโยชน์กว่าคือ <b>rpm จริงตอน PWM เต็ม</b> เทียบกับ <code>MOTOR_MAX_RPM</code></p>
+</div>
+
+<div class="card" id="m6">
   <h2>💡 LED · 🔊 เสียง <small>(เมนู 6)</small></h2>
-  <div class="row"><button id="bLed1">LED ติด</button><button id="bLed0">LED ดับ</button></div>
+  <div class="row"><button id="bLed1">LED ติด</button><button id="bLed0">LED ดับ</button><button id="bBlink">กะพริบ</button> ทุก <input type="number" id="blinkMs" value="500" min="100" max="2000" step="50"> ms</div>
   <div class="row">ความถี่ <input type="number" id="bz" value="1000" min="20" max="20000"> Hz · <input type="number" id="bzms" value="150" min="1" max="1000"> ms <button id="bBeep">🔊 บี๊บ</button></div>
 </div>
 
-<div class="card">
+<div class="card" id="m4">
   <h2>🦾 Servo <small>(เมนู 4)</small></h2>
   <label class="safe" style="border-color:var(--stop)"><input type="checkbox" id="srvSafe"> แขนกลอยู่ในท่าปลอดภัย (ยังไม่ได้คาลิเบรต — ขยับทีละน้อย)</label>
   <div class="row">S1 หนีบ <input type="range" id="s1" min="0" max="180" value="90" style="flex:1"> <b id="s1v">90</b></div>
@@ -100,7 +115,7 @@ textarea{width:100%;font:13px ui-monospace,monospace;border-radius:8px;border:1p
   <div class="row"><button id="bSrvSend">ส่งมุม</button><button id="bSrvOff">ปล่อย servo (detach)</button></div>
 </div>
 
-<div class="card">
+<div class="card" id="m89">
   <h2>📶 เครือข่าย <small>(เมนู 8–9 · ที่บอร์ดได้รับจาก Jetson)</small></h2>
   <div class="kv" style="grid-template-columns:90px 1fr">
     <span>host</span><span id="nH">–</span><span>SSID</span><span id="nS">–</span>
@@ -109,7 +124,7 @@ textarea{width:100%;font:13px ui-monospace,monospace;border-radius:8px;border:1p
   <p class="dim">ระหว่างเชื่อมต่อหน้านี้ service lotus-netinfo หยุดส่ง (พอร์ตไม่ว่าง) — "live" จะเป็น "ไม่" ได้ ไม่ใช่ปัญหา</p>
 </div>
 
-<div class="card wide">
+<div class="card wide" id="m10">
   <h2>📈 จูน PID ความเร็วล้อ <small>(เมนู 10 · ทดสอบแบบขั้นบันได)</small></h2>
   <div class="row" style="align-items:flex-start;gap:20px">
     <table>
@@ -144,6 +159,38 @@ textarea{width:100%;font:13px ui-monospace,monospace;border-radius:8px;border:1p
   </ol></details>
   <p><b>คัดลอกไปใส่ <code>lotusrosbot_config.h</code></b></p>
   <textarea id="defs" rows="7" readonly></textarea>
+</div>
+
+<div class="card wide" id="guide">
+  <h2>📖 อ่านกราฟ step ให้เป็น — กราฟที่ดีหน้าตาแบบไหน</h2>
+  <img src="lrb_pid_guide.png" alt="ตัวอย่างกราฟ 6 แบบจากหุ่นจริง" style="width:100%;max-width:1100px;border-radius:10px;border:1px solid var(--line)">
+  <div class="tablewrap"><table style="margin-top:8px">
+    <tr><th>ดูอะไร</th><th>กราฟที่ดี (เป้าของหุ่นตัวนี้)</th><th>ถ้าไม่ได้ ให้ปรับ</th></tr>
+    <tr><td>ขึ้นถึง 90% ของเป้า</td><td>≤ 0.3 วินาที</td><td>ช้า → <b>เพิ่ม Ki</b> (ตัวหลัก) · Kp ช่วยช่วงแรก</td></tr>
+    <tr><td>พุ่งเกินเป้า</td><td>≤ 5% (ไม่เกิน 10%)</td><td>เกินมาก → ลด Ki หรือเพิ่ม Kp เล็กน้อย</td></tr>
+    <tr><td>ขาดจากเป้าตอนนิ่ง</td><td>≤ 2%</td><td>ค้างต่ำกว่าเป้า → เพิ่ม Ki (ถ้า Ki = 0 จะไม่มีวันถึงเป้า)</td></tr>
+    <tr><td>นิ่งในช่วง ±5%</td><td>≤ 0.4 วินาที · ไม่แกว่งขึ้นลง</td><td>แกว่งรอบเป้า → ลด Ki / เพิ่ม Kd เล็กน้อย</td></tr>
+    <tr><td>กราฟ PWM</td><td>ขึ้นเร็วแล้วเรียบ · ไม่ชนเพดาน 1023 นาน · ไม่กระตุก</td><td>กระตุก/ชนเพดาน → ลด Kp · เป็นหนาม → ลด Kd</td></tr>
+    <tr><td>ล้อซ้ายเทียบขวา</td><td>เส้นซ้อนกัน</td><td>ต่างกัน → จูนแยกล้อ (ปลดติ๊ก "ใช้ค่าเดียวกัน")</td></tr>
+  </table></div>
+  <p class="dim">ลำดับที่แนะนำ: ① ทดสอบค่าเดิม → ② เพิ่ม Ki จนขึ้นเร็วแต่เกินไม่ถึง 10% → ③ ปรับ Kp ให้เกินน้อยลง → ④ Kd 0–0.5 ให้นิ่งเร็ว → ⑤ ลอง 30 / 90 / −60 rpm ต้องดีทุกค่า → ⑥ ทดสอบวิ่งบนพื้นจริง (มีภาระ) แล้วค่อยบันทึก · ค่าที่ได้วันนี้: เดิม 0.35/0.40/0.10 ขึ้นถึง 90% ใน 1.0 วิ → <b>4 / 2.0 / 0.2</b> ใน 0.24 วิ</p>
+</div>
+
+<div class="card wide" id="cfgp">
+  <h2>⚙️ ค่าหุ่น (lotusrosbot_config.h) + อัปโหลดเฟิร์มแวร์</h2>
+  <p class="dim" id="cfgPath"></p>
+  <div class="row"><button id="bCfgLoad">โหลดค่าจากไฟล์</button><button id="bCfgPid">ใส่ค่า PID ที่ใช้อยู่ในบอร์ด</button></div>
+  <div class="cfg" id="cfgForm"></div>
+  <details><summary>ขา GPIO และค่าที่แก้จากเว็บไม่ได้ (ดูอย่างเดียว)</summary><pre class="box" id="cfgRo"></pre></details>
+  <div class="row"><button id="bCfgPrev">1) ดูสิ่งที่จะเปลี่ยน</button><button class="pri" id="bCfgSave">2) บันทึกไฟล์</button><button class="pri" id="bFlash">3) Build + อัปโหลดลงบอร์ด</button></div>
+  <pre class="box" id="cfgDiff">(ยังไม่ได้เปลี่ยนอะไร)</pre>
+  <div class="prog"><i id="jobProg" style="width:0"></i></div>
+  <pre class="box" id="jobLog">(ยังไม่มีงาน)</pre>
+  <details><summary>↩️ ย้อนเฟิร์มแวร์เวอร์ชันก่อนหน้า (~/fw_backup)</summary>
+    <div class="row"><select id="bakSel" style="min-width:340px"></select><button id="bBakLoad">โหลดรายการ</button><button class="red" id="bRollback">เขียนไฟล์นี้ลงบอร์ด</button></div>
+    <p class="dim">ย้อนเฉพาะเฟิร์มแวร์ในบอร์ด — ไฟล์ config ไม่ย้อนตาม (ย้อนได้จาก .bak_web_… หรือ git) · เวอร์ชันก่อน 14c ต่อหน้าเว็บนี้ไม่ได้</p>
+  </details>
+  <p class="dim">ขั้นตอน: แก้ค่า → ① ดูสิ่งที่จะเปลี่ยน → ② บันทึก (สำรองไฟล์เดิม + git commit ในเครื่อง) → ③ Build + อัปโหลด (~2 นาที · ต้องปิด agent/ภารกิจ · สำรอง .bin ให้เอง) → บอร์ดรีบูตแล้วหน้าเว็บต่อกลับเอง · ค่า PID ไม่ต้องอัปโหลดก็ได้ (กด 💾 บันทึกลงบอร์ด)</p>
 </div>
 
 <div class="card wide"><h2>📝 บันทึก</h2><div id="log"></div></div>
@@ -248,6 +295,60 @@ function addRow(j){
     cells.forEach(function(c,i){var td=document.createElement('td');td.textContent=c;if(i===2)td.style.color=w==='L'?'var(--L)':'var(--R)';tr.appendChild(td);});
     $('mt').appendChild(tr);});
 }
+
+// ── LED กะพริบ ──
+var blinkT=null,blinkOn=false;
+$('bBlink').onclick=function(){if(blinkT){clearInterval(blinkT);blinkT=null;this.textContent='กะพริบ';cmd('@LED 0');return;}
+  this.textContent='หยุดกะพริบ';blinkT=setInterval(function(){blinkOn=!blinkOn;cmd('@LED '+(blinkOn?1:0));},Math.max(100,+$('blinkMs').value||500));};
+
+// ── งานยาว (CPR / อัปโหลด / ย้อน) ──
+function jobPoll(){fetch('api/job',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
+  $('jobProg').style.width=Math.round((j.progress||0)*100)+'%';$('cprProg').style.width=Math.round((j.progress||0)*100)+'%';
+  if(j.name)$('jobLog').textContent=(j.running?'⏳ ':j.ok?'✅ ':'⚠️ ')+j.name+'\n'+(j.log||[]).join('\n');
+  $('jobLog').scrollTop=1e9;
+  var res=j.result;if(res&&res.rounds){var t=$('cprT');while(t.rows.length>1)t.deleteRow(1);
+    res.rounds.forEach(function(r,i){var tr=t.insertRow();[i+1,r.L?r.L.ticks:'–',r.L?r.L.cpr_est:'–',r.L?r.L.rpm_real:'–',r.R?r.R.ticks:'–',r.R?r.R.cpr_est:'–',r.R?r.R.rpm_real:'–'].forEach(function(v){tr.insertCell().textContent=v;});});
+    if(res.L||res.R){var tr=t.insertRow();['เฉลี่ย ± SD','',res.L?res.L.avg+' ± '+res.L.sd:'–','(ในโค้ด '+res.cpr_cfg[0]+')','',res.R?res.R.avg+' ± '+res.R.sd:'–','(ในโค้ด '+res.cpr_cfg[1]+')'].forEach(function(v){tr.insertCell().textContent=v;});}}
+  if(j.running)setTimeout(jobPoll,700);});}
+$('bCpr').onclick=function(){if(!needSafe())return;if(!confirm('มอเตอร์จะหมุนเต็มกำลังทีละล้อ — ล้อลอยแล้ว?'))return;
+  post('api/cpr',{seconds:+$('cprSec').value,rounds:+$('cprRounds').value}).then(function(j){show(j.ok?'warn':'bad',(j.ok?'⏳ กำลังวัด CPR…':'⛔ '+j.msg));jobPoll();});};
+$('bCprStop').onclick=function(){post('api/job/cancel');};
+
+// ── ค่าหุ่น ──
+var CFG=null;
+function cfgLoad(){fetch('api/config',{cache:'no-store'}).then(function(r){return r.json();}).then(function(c){CFG=c;
+  $('cfgPath').textContent='ไฟล์: '+c.path;var f=$('cfgForm');f.innerHTML='';var groups={};
+  c.items.forEach(function(it){(groups[it.group]=groups[it.group]||[]).push(it);});
+  Object.keys(groups).forEach(function(g){var fs=document.createElement('fieldset');fs.innerHTML='<legend><b>'+g+'</b></legend>';
+    groups[g].forEach(function(it){var l=document.createElement('label');
+      var inp=it.type==='bool'?'<select data-k="'+it.name+'"><option>true</option><option>false</option></select>':'<input type="number" data-k="'+it.name+'" step="'+(it.type==='int'?1:0.001)+'" min="'+it.min+'" max="'+it.max+'">';
+      l.innerHTML='<span><code>'+it.name+'</code><small>'+it.desc+' ('+it.min+'–'+it.max+')</small></span>'+inp;fs.appendChild(l);
+      var e=l.querySelector('[data-k]');e.value=it.value;e.dataset.orig=it.value;e.addEventListener('input',markChg);e.addEventListener('change',markChg);});
+    f.appendChild(fs);});
+  var fs=document.createElement('fieldset');fs.innerHTML='<legend><b>อุปกรณ์เสริม (เปิด/ปิด)</b></legend>';
+  c.toggles.forEach(function(t){var l=document.createElement('label');l.innerHTML='<span><code>'+t.name+'</code><small>'+t.desc+'</small></span><input type="checkbox" data-t="'+t.name+'"'+(t.on?' checked':'')+'>';fs.appendChild(l);
+    var e=l.querySelector('input');e.dataset.orig=t.on?'1':'0';e.addEventListener('change',markChg);});
+  f.appendChild(fs);
+  $('cfgRo').textContent=Object.keys(c.readonly).map(function(k){return k+' = '+c.readonly[k];}).join('\n');
+  $('cfgDiff').textContent='(ยังไม่ได้เปลี่ยนอะไร)';});}
+function markChg(){var e=this;var cur=e.type==='checkbox'?(e.checked?'1':'0'):String(e.value);e.classList.toggle('chg',cur!==e.dataset.orig);e.style.outline=cur!==e.dataset.orig?'2px solid var(--warn)':'';}
+function cfgCollect(){var v={},t={};document.querySelectorAll('#cfgForm [data-k]').forEach(function(e){if(String(e.value)!==e.dataset.orig)v[e.dataset.k]=e.value;});
+  document.querySelectorAll('#cfgForm [data-t]').forEach(function(e){if((e.checked?'1':'0')!==e.dataset.orig)t[e.dataset.t]=e.checked;});return {values:v,toggles:t};}
+$('bCfgLoad').onclick=cfgLoad; cfgLoad();
+$('bCfgPid').onclick=function(){if(!S.pid){show('warn','⚠️ เชื่อมต่อบอร์ดก่อน');return;}var m={K_P_L:0,K_I_L:1,K_D_L:2};
+  ['L','R'].forEach(function(w){['P','I','D'].forEach(function(x,i){var e=document.querySelector('#cfgForm [data-k="K_'+x+'_'+w+'"]');if(e){e.value=S.pid[w][i];markChg.call(e);}});});show('ok','ใส่ค่า PID จากบอร์ดในฟอร์มแล้ว — กด ① ดูสิ่งที่จะเปลี่ยน');};
+$('bCfgPrev').onclick=function(){post('api/config/preview',cfgCollect()).then(function(j){$('cfgDiff').textContent=j.ok?(j.changes.length?('จะเปลี่ยน: '+j.changes.join(' · ')+'\n\n'+j.diff):'(ไม่มีอะไรเปลี่ยน)'):'⛔ '+j.msg;});};
+$('bCfgSave').onclick=function(){var c=cfgCollect();if(!Object.keys(c.values).length&&!Object.keys(c.toggles).length){show('warn','ยังไม่ได้แก้ค่าอะไร');return;}
+  post('api/config/preview',c).then(function(j){if(!j.ok){$('cfgDiff').textContent='⛔ '+j.msg;return;}
+    if(!confirm('บันทึกลงไฟล์?\n\n'+j.changes.join('\n')))return;
+    post('api/config/save',c).then(function(r){$('cfgDiff').textContent=r.ok?('✅ บันทึกแล้ว: '+r.changes.join(' · ')+'\nสำรองไฟล์เดิม: '+r.backup+' · git: '+r.git+'\n→ กด ③ Build + อัปโหลด เพื่อใช้ค่าใหม่ในบอร์ด'):'⛔ '+r.msg;cfgLoad();});});};
+$('bFlash').onclick=function(){if(!confirm('Build + อัปโหลดเฟิร์มแวร์ลงบอร์ด? (~2 นาที · หุ่นต้องจอดนิ่ง · ปิด agent/ภารกิจแล้ว)'))return;
+  post('api/flash').then(function(j){show(j.ok?'warn':'bad',j.ok?'⏳ กำลัง build + อัปโหลด…':'⛔ '+j.msg);jobPoll();});};
+$('bBakLoad').onclick=function(){fetch('api/backups').then(function(r){return r.json();}).then(function(j){var s=$('bakSel');s.innerHTML='';
+  j.files.forEach(function(f){var o=document.createElement('option');o.value=f.file;o.textContent=f.mtime+' · '+f.file;s.appendChild(o);});});};
+$('bRollback').onclick=function(){var f=$('bakSel').value;if(!f){show('warn','โหลดรายการก่อน');return;}if(!confirm('เขียน '+f+' ลงบอร์ด?'))return;
+  post('api/rollback',{file:f}).then(function(j){show(j.ok?'warn':'bad',j.ok?'⏳ กำลังเขียน…':'⛔ '+j.msg);jobPoll();});};
+jobPoll();
 
 function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
 function draw(){

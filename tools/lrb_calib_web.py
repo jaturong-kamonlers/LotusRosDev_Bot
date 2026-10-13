@@ -263,6 +263,283 @@ def metrics(t, tgt, rpm):
 LINK = Link()
 
 
+# ════════════════════════════════════════════════════════════════
+#  ค่าหุ่น (lotusrosbot_config.h) — อ่าน/แก้จากหน้าเว็บ
+# ════════════════════════════════════════════════════════════════
+REPO = os.path.dirname(HERE)                                   # ~/LotusRosDev_Bot
+CFG = os.path.join(REPO, 'LotusRosBot', 'firmware', 'include', 'lotusrosbot_config.h')
+FLASH = os.path.join(REPO, 'tools', 'flash.sh')
+BACKUP_DIR = os.path.expanduser('~/fw_backup')
+
+# ชื่อ: (กลุ่ม, ชนิด, ต่ำสุด, สูงสุด, คำอธิบาย)
+SPEC = {
+    'K_P_L': ('PID ล้อซ้าย', 'float', 0, 50, 'Kp — ดันตามความผิดพลาดตอนนี้'),
+    'K_I_L': ('PID ล้อซ้าย', 'float', 0, 50, 'Ki — สะสมจนถึงเป้า (ตัวหลักที่ทำให้เร็ว)'),
+    'K_D_L': ('PID ล้อซ้าย', 'float', 0, 50, 'Kd — เบรกการเปลี่ยนเร็ว'),
+    'K_P_R': ('PID ล้อขวา', 'float', 0, 50, 'Kp'),
+    'K_I_R': ('PID ล้อขวา', 'float', 0, 50, 'Ki'),
+    'K_D_R': ('PID ล้อขวา', 'float', 0, 50, 'Kd'),
+    'COUNTS_PER_REV1': ('Encoder', 'int', 10, 20000, 'tick ต่อรอบ ล้อซ้าย (เมนู 7)'),
+    'COUNTS_PER_REV2': ('Encoder', 'int', 10, 20000, 'tick ต่อรอบ ล้อขวา (เมนู 7)'),
+    'MOTOR1_ENCODER_INV': ('Encoder', 'bool', 0, 1, 'กลับทิศนับ encoder ซ้าย'),
+    'MOTOR2_ENCODER_INV': ('Encoder', 'bool', 0, 1, 'กลับทิศนับ encoder ขวา'),
+    'WHEEL_DIAMETER': ('ขนาดล้อ', 'float', 0.02, 0.30, 'เส้นผ่านศูนย์กลางล้อ (m) — มีผลกับระยะทาง'),
+    'LR_WHEELS_DISTANCE': ('ขนาดล้อ', 'float', 0.05, 1.0, 'ระยะกึ่งกลางล้อซ้าย-ขวา (m) — มีผลกับการหมุน'),
+    'MOTOR_MAX_RPM': ('มอเตอร์', 'int', 10, 1000, 'RPM สูงสุดตามสเปก'),
+    'MAX_RPM_RATIO_L': ('มอเตอร์', 'float', 0.1, 1.0, 'ใช้ได้ไม่เกินกี่ส่วนของ RPM สูงสุด (ซ้าย)'),
+    'MAX_RPM_RATIO_R': ('มอเตอร์', 'float', 0.1, 1.0, '(ขวา)'),
+    'MOTOR_OPERATING_VOLTAGE': ('มอเตอร์', 'float', 1, 48, 'แรงดันตามสเปกมอเตอร์ (V)'),
+    'MOTOR_POWER_MAX_VOLTAGE': ('มอเตอร์', 'float', 1, 48, 'แรงดันที่จ่ายจริง (V)'),
+    'MOTOR_POWER_MEASURED_VOLTAGE': ('มอเตอร์', 'float', 0, 48, 'แรงดันที่วัดได้ (V) — ใช้ในเมนู 2–3'),
+    'MOTOR1_INV': ('มอเตอร์', 'bool', 0, 1, 'กลับทิศมอเตอร์ซ้าย'),
+    'MOTOR2_INV': ('มอเตอร์', 'bool', 0, 1, 'กลับทิศมอเตอร์ขวา'),
+}
+TOGGLES = {'USE_BUZZER': 'เสียง buzzer', 'USE_SERVO': 'servo แขนกล', 'USE_IR_SENSORS': 'เซนเซอร์ IR',
+           'USE_POTENTIOMETER': 'potentiometer', 'USE_BUTTON': 'ปุ่ม BTN'}
+READONLY = ['BAUDRATE', 'NODE_NAME', 'LED_PIN', 'MOTOR1_PWM', 'MOTOR1_IN_A', 'MOTOR1_IN_B', 'MOTOR2_PWM',
+            'MOTOR2_IN_A', 'MOTOR2_IN_B', 'MOTOR1_ENCODER_A', 'MOTOR1_ENCODER_B', 'MOTOR2_ENCODER_A',
+            'MOTOR2_ENCODER_B', 'BUZZER_PIN', 'SERVO1_PIN', 'SERVO2_PIN', 'SERVO3_PIN', 'IR_LEFT_PIN',
+            'IR_RIGHT_PIN', 'POT_PIN', 'BUTTON_PIN', 'SDA_PIN', 'SCL_PIN']
+DEF_RE = re.compile(r'^(\s*)(//\s*)?#define\s+(\w+)(\s+)([^/\n]*?)(\s*)(//.*)?$')
+
+
+def cfg_read():
+    with open(CFG, encoding='utf-8') as f:
+        lines = f.read().split('\n')
+    vals, toggles, ro = {}, {}, {}
+    for l in lines:
+        m = DEF_RE.match(l)
+        if not m:
+            continue
+        commented, name, val = bool(m.group(2)), m.group(3), m.group(5).strip()
+        if name in TOGGLES:
+            toggles[name] = not commented
+        elif not commented and name in SPEC:
+            vals[name] = val
+        elif not commented and name in READONLY:
+            ro[name] = val
+    items = [{'name': k, 'group': g, 'type': t, 'min': lo, 'max': hi, 'desc': d, 'value': vals.get(k)}
+             for k, (g, t, lo, hi, d) in SPEC.items()]
+    return {'items': items, 'toggles': [{'name': k, 'desc': d, 'on': toggles.get(k, False)} for k, d in TOGGLES.items()],
+            'readonly': ro, 'path': CFG}
+
+
+def cfg_validate(new):
+    """คืน (ค่าที่จะเขียน {name: text}, toggles {name: bool}, ข้อผิดพลาด [])"""
+    out, tog, err = {}, {}, []
+    for k, v in (new.get('values') or {}).items():
+        if k not in SPEC:
+            err.append(f'{k}: แก้จากหน้าเว็บไม่ได้'); continue
+        g, t, lo, hi, d = SPEC[k]
+        s = str(v).strip().lower()
+        if t == 'bool':
+            if s not in ('true', 'false'):
+                err.append(f'{k}: ต้องเป็น true/false'); continue
+            out[k] = s
+        else:
+            try:
+                x = float(s)
+            except ValueError:
+                err.append(f'{k}: ไม่ใช่ตัวเลข'); continue
+            if not (lo <= x <= hi):
+                err.append(f'{k}: ต้องอยู่ระหว่าง {lo}–{hi}'); continue
+            if t == 'int':
+                out[k] = str(int(round(x)))
+            else:
+                f4 = ('%.4f' % x).rstrip('0')
+                out[k] = f4 + '0' if f4.endswith('.') else f4
+    for k, on in (new.get('toggles') or {}).items():
+        if k in TOGGLES:
+            tog[k] = bool(on)
+    return out, tog, err
+
+
+def cfg_apply(text, out, tog):
+    lines = text.split('\n')
+    changes = []
+    for i, l in enumerate(lines):
+        m = DEF_RE.match(l)
+        if not m:
+            continue
+        ind, com, name, sp1, val, sp2, cmt = m.groups()
+        if name in out and not com and val.strip() != out[name]:
+            newv = out[name]
+            pad = max(1, len(val) + len(sp2) - len(newv)) if cmt else 0
+            lines[i] = f'{ind}#define {name}{sp1}{newv}' + ((' ' * pad + cmt) if cmt else '')
+            changes.append(f'{name} {val.strip()}→{newv}')
+        if name in tog:
+            on_now = not com
+            if tog[name] != on_now:
+                lines[i] = (l.replace('// #define', '#define', 1).replace('//#define', '#define', 1) if tog[name]
+                            else re.sub(r'^(\s*)#define', r'\1// #define', l, count=1))
+                changes.append(f'{name} {"เปิด" if tog[name] else "ปิด"}')
+    return '\n'.join(lines), changes
+
+
+def cfg_diff(old, new):
+    import difflib
+    return '\n'.join(difflib.unified_diff(old.split('\n'), new.split('\n'), 'เดิม', 'ใหม่', n=0, lineterm=''))
+
+
+# ════════════════════════════════════════════════════════════════
+#  งานที่ใช้เวลานาน (วัด CPR / build+อัปโหลด / ย้อนเวอร์ชัน) — ทีละงาน
+# ════════════════════════════════════════════════════════════════
+JOB = {'name': '', 'running': False, 'ok': None, 'log': [], 'progress': 0.0, 'result': None, 'cancel': False}
+ANSI = re.compile(r'\x1b\[[0-9;]*m')
+
+
+def job_log(t):
+    JOB['log'] = (JOB['log'] + [ANSI.sub('', t)])[-300:]
+
+
+def job_start(name, fn, *a):
+    if JOB['running']:
+        return False, f'มีงานกำลังทำอยู่: {JOB["name"]}'
+    JOB.update(name=name, running=True, ok=None, log=[], progress=0.0, result=None, cancel=False)
+
+    def run():
+        try:
+            JOB['ok'] = bool(fn(*a))
+        except Exception as e:
+            job_log(f'❌ ผิดพลาด: {e}')
+            JOB['ok'] = False
+        finally:
+            JOB['running'] = False
+            LINK.state['busy'] = False
+    threading.Thread(target=run, daemon=True).start()
+    return True, 'เริ่มแล้ว'
+
+
+def read_status_enc():
+    r = LINK.command('@STATUS', ('ST',), 0.6)
+    if not r:
+        return None
+    d = dict(kv.split('=', 1) for kv in r[3:].split() if '=' in kv)
+    return int(float(d['enc1'])), int(float(d['enc2']))
+
+
+def cfg_num(name, default):
+    for it in cfg_read()['items']:
+        if it['name'] == name and it['value'] is not None:
+            try:
+                return float(it['value'])
+            except ValueError:
+                pass
+    return default
+
+
+def job_cpr(rounds, seconds):
+    """เมนู 2–3: หมุนมอเตอร์เต็มกำลังทีละล้อ แล้วประมาณ CPR จาก rpm ตามสเปก (ค่าประมาณ — เมนู 7 แม่นกว่า)"""
+    vop = cfg_num('MOTOR_OPERATING_VOLTAGE', 12); vme = min(cfg_num('MOTOR_POWER_MEASURED_VOLTAGE', 12), vop)
+    rpm_spec = cfg_num('MOTOR_MAX_RPM', 110) * vme / vop
+    exp_revs = rpm_spec * seconds / 60.0
+    cpr_cfg = [cfg_num('COUNTS_PER_REV1', 958), cfg_num('COUNTS_PER_REV2', 925)]
+    job_log(f'rpm ตามสเปก {rpm_spec:.1f} → ใน {seconds} วิ ควรหมุน {exp_revs:.1f} รอบ')
+    res = {'rounds': [], 'cpr_cfg': cpr_cfg}
+    total = rounds * 2; n = 0
+    for r in range(rounds):
+        order = (0, 1) if r % 2 == 0 else (1, 0)
+        row = {}
+        for m in order:
+            if JOB['cancel']:
+                LINK.command('@STOP'); job_log('หยุดตามคำสั่ง'); return False
+            LINK.command('@ENCZERO')
+            job_log(f'รอบ {r + 1}/{rounds} · ล้อ{"ซ้าย" if m == 0 else "ขวา"} หมุน PWM เต็ม {seconds} วิ…')
+            t0 = time.time()
+            while time.time() - t0 < seconds:
+                if JOB['cancel'] or not LINK.state['connected']:
+                    break
+                LINK.command('@MOTOR %d %d' % ((1023, 0) if m == 0 else (0, 1023)), ('OK MOTOR',), 0.3)
+                JOB['progress'] = (n + (time.time() - t0) / seconds) / total
+                time.sleep(0.1)
+            LINK.command('@STOP'); time.sleep(0.6)
+            enc = read_status_enc()
+            if enc is None:
+                job_log('อ่าน encoder ไม่ได้'); return False
+            ticks = abs(enc[m]); n += 1
+            row['L' if m == 0 else 'R'] = {'ticks': ticks, 'cpr_est': round(ticks / exp_revs),
+                                           'rpm_real': round(ticks / cpr_cfg[m] / seconds * 60, 1)}
+            job_log(f'  tick {ticks} → CPR ประมาณ {ticks / exp_revs:.0f} · rpm จริง (ใช้ CPR ในโค้ด) {ticks / cpr_cfg[m] / seconds * 60:.1f}')
+        res['rounds'].append(row)
+    for w in 'LR':
+        v = [x[w]['cpr_est'] for x in res['rounds'] if w in x]
+        if v:
+            avg = sum(v) / len(v); sd = (sum((x - avg) ** 2 for x in v) / (len(v) - 1)) ** 0.5 if len(v) > 1 else 0
+            res[w] = {'avg': round(avg), 'sd': round(sd, 1)}
+    JOB['result'] = res; JOB['progress'] = 1.0
+    job_log('✅ เสร็จ')
+    return True
+
+
+def run_stream(cmd, cwd=None):
+    p = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                         text=True, bufsize=1)
+    for line in p.stdout:
+        line = line.rstrip()
+        if line:
+            job_log(line)
+            for key, pr in (('1) build', 0.1), ('Compiling', None), ('SUCCESS', 0.55), ('2) สำรอง', 0.6),
+                            ('4) เขียน', 0.65), ('Wrote', 0.9), ('verify ผ่าน', 0.93)):
+                if key in line:
+                    JOB['progress'] = min(0.5, JOB['progress'] + 0.02) if pr is None else max(JOB['progress'], pr)
+    return p.wait()
+
+
+def job_flash():
+    was = LINK.state['connected']
+    if was:
+        job_log('ปิดการเชื่อมต่อเว็บชั่วคราว (ให้ flash.sh ใช้พอร์ต)')
+        LINK.disconnect(reboot=False)
+        time.sleep(0.5)
+    why = LINK.port_owner()
+    if why:
+        job_log('❌ ' + why); return False
+    job_log('$ bash tools/flash.sh upload')
+    rc = run_stream(['bash', FLASH, 'upload'], cwd=REPO)
+    if rc != 0:
+        job_log(f'❌ flash.sh จบด้วยรหัส {rc}'); return False
+    JOB['progress'] = 0.95
+    job_log('บอร์ดรีบูตแล้ว — ต่อกลับเข้าโหมดคาลิเบรต…'); time.sleep(2)
+    ok, msg = LINK.connect(); job_log(('✅ ' if ok else '⚠️ ') + msg)
+    JOB['progress'] = 1.0
+    return True
+
+
+def job_rollback(path):
+    if LINK.state['connected']:
+        LINK.disconnect(reboot=False); time.sleep(0.5)
+    why = LINK.port_owner()
+    if why:
+        job_log('❌ ' + why); return False
+    py = os.path.expanduser('~/.platformio/penv/bin/python')
+    esp = os.path.expanduser('~/.platformio/packages/tool-esptoolpy/esptool.py')
+    job_log(f'เขียน {os.path.basename(path)} ลงบอร์ด…')
+    for i in range(3):
+        rc = run_stream([py, esp, '--chip', 'esp32', '--port', PORT_DEV, '--baud', '115200', 'write_flash', '-z', '0x10000', path])
+        if rc == 0:
+            rc2 = run_stream([py, esp, '--chip', 'esp32', '--port', PORT_DEV, '--baud', '115200', 'verify_flash', '0x10000', path])
+            if rc2 == 0:
+                job_log('✅ เขียน + ตรวจผ่าน'); break
+        job_log(f'ลองใหม่ครั้งที่ {i + 2}…'); time.sleep(2)
+    else:
+        return False
+    time.sleep(2)
+    ok, msg = LINK.connect(); job_log(('✅ ' if ok else '⚠️ ') + msg + ' (เฟิร์มแวร์เก่ากว่า 14c จะต่อหน้าเว็บไม่ได้ — ปกติ)')
+    JOB['progress'] = 1.0
+    return True
+
+
+def list_backups():
+    out = []
+    for fn in sorted(os.listdir(BACKUP_DIR), reverse=True) if os.path.isdir(BACKUP_DIR) else []:
+        p = os.path.join(BACKUP_DIR, fn)
+        if fn.endswith('.bin') and os.path.isfile(p) and os.path.getsize(p) > 100000:
+            out.append({'file': fn, 'size': os.path.getsize(p), 'mtime': time.strftime('%Y-%m-%d %H:%M', time.localtime(os.path.getmtime(p)))})
+    out.sort(key=lambda x: x['mtime'], reverse=True)
+    return out[:30]
+
+
+
 def poller():
     """อ่านสถานะสดทุก 0.3 วินาที (หยุดระหว่างทดสอบ step)"""
     n = 0
@@ -298,6 +575,21 @@ class Handler(BaseHTTPRequestHandler):
                     return self._reply(200, f.read(), 'text/html; charset=utf-8')
             except OSError:
                 return self._reply(500, {'msg': f'ไม่พบ {PAGE}'})
+        if path == '/lrb_pid_guide.png':
+            try:
+                with open(os.path.join(HERE, 'lrb_pid_guide.png'), 'rb') as f:
+                    return self._reply(200, f.read(), 'image/png')
+            except OSError:
+                return self._reply(404, {'msg': 'ไม่พบภาพ'})
+        if path == '/api/config':
+            try:
+                return self._reply(200, cfg_read())
+            except OSError as e:
+                return self._reply(500, {'msg': f'อ่าน config ไม่ได้: {e}'})
+        if path == '/api/job':
+            return self._reply(200, JOB)
+        if path == '/api/backups':
+            return self._reply(200, {'files': list_backups()})
         if path == '/api/state':
             st = dict(LINK.state)
             st['port_owner'] = '' if LINK.state['connected'] else LINK.port_owner()
@@ -327,6 +619,53 @@ class Handler(BaseHTTPRequestHandler):
             r = LINK.command(line)
             return self._reply(200, {'ok': r is not None and not r.startswith('ERR'), 'reply': r,
                                      'pid': LINK.state['pid']})
+        if path in ('/api/config/preview', '/api/config/save'):
+            out, tog, err = cfg_validate(d)
+            if err:
+                return self._reply(400, {'ok': False, 'msg': ' · '.join(err)})
+            old = open(CFG, encoding='utf-8').read()
+            new, changes = cfg_apply(old, out, tog)
+            if path.endswith('preview') or not changes:
+                return self._reply(200, {'ok': True, 'changes': changes, 'diff': cfg_diff(old, new)})
+            bak = CFG + time.strftime('.bak_web_%Y%m%d_%H%M%S')
+            with open(bak, 'w', encoding='utf-8') as f: f.write(old)
+            with open(CFG, 'w', encoding='utf-8') as f: f.write(new)
+            msg = 'config (web): ' + ', '.join(changes)
+            subprocess.run(['git', '-C', REPO, 'add', CFG], capture_output=True)
+            g = subprocess.run(['git', '-C', REPO, 'commit', '-q', '-m', msg], capture_output=True, text=True)
+            LINK.log('บันทึก config: ' + ', '.join(changes))
+            return self._reply(200, {'ok': True, 'changes': changes, 'backup': os.path.basename(bak),
+                                     'git': 'commit แล้ว' if g.returncode == 0 else g.stderr.strip()[:200]})
+        if path == '/api/flash':
+            LINK.state['busy'] = True
+            ok, msg = job_start('build + อัปโหลดเฟิร์มแวร์', job_flash)
+            if not ok: LINK.state['busy'] = False
+            return self._reply(200, {'ok': ok, 'msg': msg})
+        if path == '/api/rollback':
+            fn = os.path.basename(str(d.get('file', '')))
+            p = os.path.join(BACKUP_DIR, fn)
+            if not (fn.endswith('.bin') and os.path.isfile(p)):
+                return self._reply(400, {'ok': False, 'msg': 'ไม่พบไฟล์'})
+            LINK.state['busy'] = True
+            ok, msg = job_start('ย้อนเฟิร์มแวร์ ' + fn, job_rollback, p)
+            if not ok: LINK.state['busy'] = False
+            return self._reply(200, {'ok': ok, 'msg': msg})
+        if path == '/api/cpr':
+            if not LINK.state['connected']:
+                return self._reply(400, {'ok': False, 'msg': 'ยังไม่เชื่อมต่อ'})
+            try:
+                rounds = 5 if int(d.get('rounds', 1)) >= 5 else 1
+                secs = max(5, min(30, int(d.get('seconds', 20))))
+            except (TypeError, ValueError):
+                return self._reply(400, {'ok': False, 'msg': 'ค่าไม่ถูกต้อง'})
+            LINK.state['busy'] = True
+            ok, msg = job_start(f'วัด CPR ×{rounds}', job_cpr, rounds, secs)
+            if not ok: LINK.state['busy'] = False
+            return self._reply(200, {'ok': ok, 'msg': msg})
+        if path == '/api/job/cancel':
+            JOB['cancel'] = True
+            LINK.command('@STOP')
+            return self._reply(200, {'ok': True})
         if path == '/api/step':
             side = str(d.get('side', 'B'))[:1].upper()
             try:
