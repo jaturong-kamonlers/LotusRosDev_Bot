@@ -41,10 +41,19 @@ textarea{width:100%;font:13px ui-monospace,monospace;border-radius:8px;border:1p
 .cfg{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px}.cfg fieldset{border:1px solid var(--line);border-radius:10px}.cfg label{display:grid;grid-template-columns:1fr 110px;gap:6px;align-items:center;font-size:13px;margin:4px 0}.cfg label small{display:block;color:var(--dim)}
 pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;max-height:260px;overflow:auto;white-space:pre-wrap}
 .chg{color:var(--warn);font-weight:600}
+.card{position:relative;transition:background .4s}
+.card.active{border-left:6px solid var(--ok);animation:breathe 2s ease-in-out infinite}
+@keyframes breathe{0%,100%{background:var(--card)}50%{background:rgba(34,197,94,.14)}}
+@media (prefers-reduced-motion:reduce){.card.active{animation:none;background:rgba(34,197,94,.10)}}
+.badge{display:none;margin-left:auto;font-size:12px;font-weight:700;color:#fff;background:var(--ok);border-radius:999px;padding:2px 10px}
+.card.active .badge{display:inline-block}
+#busybar{position:sticky;top:0;z-index:20;display:none;align-items:center;gap:10px;margin:-12px -12px 10px;padding:8px 14px;background:var(--ok);color:#fff;font-weight:600}
+#busybar.on{display:flex}#busybar a{color:#fff}#busybar button{background:#fff;color:var(--stop);font-weight:700}
 #log{font:12px ui-monospace,monospace;max-height:140px;overflow:auto;white-space:pre-wrap;color:var(--dim)}
 </style>
 </head>
 <body>
+<div id="busybar"><span>● กำลังทำงาน:</span><a href="#" id="busyTxt">–</a><button id="busyStop">■ หยุด</button></div>
 <div class="wrap">
 
 <div class="card wide">
@@ -60,7 +69,7 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
 </div>
 
 <div class="card" id="m1">
-  <h2>1 · ⚙️ หมุนมอเตอร์ <small>(Spin motors · กดค้าง)</small></h2>
+  <h2>1 · ⚙️ หมุนมอเตอร์ <small>(Spin motors · กดค้าง)</small><span class="badge">● กำลังทำงาน</span></h2>
   <div class="row">PWM <input type="range" id="pwm" min="150" max="1023" step="1" value="400" style="flex:1"> <b id="pwmV" class="num">400</b></div>
   <div class="pad">
     <span></span><button data-m="1,1">▲</button><span></span>
@@ -71,7 +80,7 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
 </div>
 
 <div class="card" id="m23">
-  <h2>2–3 · 🔄 CPR อัตโนมัติ <small>(Sample CPR / CPR x5 · หมุนเต็มกำลัง)</small></h2>
+  <h2>2–3 · 🔄 CPR อัตโนมัติ <small>(Sample CPR / CPR x5 · หมุนเต็มกำลัง)</small><span class="badge">● กำลังทำงาน</span></h2>
   <div class="row">หมุนล้อละ <input type="number" id="cprSec" value="20" min="5" max="30"> วินาที · <select id="cprRounds"><option value="1">1 รอบ (เมนู 2)</option><option value="5">5 รอบ สลับล้อ (เมนู 3)</option></select></div>
   <div class="row"><button class="pri" id="bCpr">▶ เริ่มวัด</button><button class="red" id="bCprStop">■ หยุด</button></div>
   <div class="prog"><i id="cprProg" style="width:0"></i></div>
@@ -80,7 +89,7 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
 </div>
 
 <div class="card" id="m4">
-  <h2>4 · 🦾 Servo <small>(Servo check)</small></h2>
+  <h2>4 · 🦾 Servo <small>(Servo check)</small><span class="badge">● กำลังทำงาน</span></h2>
   <label class="safe" style="border-color:var(--stop)"><input type="checkbox" id="srvSafe"> แขนกลอยู่ในท่าปลอดภัย (ยังไม่ได้คาลิเบรต — ขยับทีละน้อย)</label>
   <div class="row">S1 หนีบ <input type="range" id="s1" min="0" max="180" value="90" style="flex:1"> <b id="s1v">90</b></div>
   <div class="row">S2 ยก <input type="range" id="s2" min="0" max="180" value="90" style="flex:1"> <b id="s2v">90</b></div>
@@ -89,7 +98,7 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
 </div>
 
 <div class="card" id="m5">
-  <h2>5 · 📟 สถานะสด <small>(Sensor check)</small></h2>
+  <h2>5 · 📟 สถานะสด <small>(Sensor check)</small><span class="badge">● กำลังทำงาน</span></h2>
   <div class="kv">
     <span>POT (GPIO35)</span><div class="bar"><i id="vPotB"></i></div><span class="num" id="vPot">–</span>
     <span>IR ซ้าย (39)</span><div class="bar"><i id="vIrlB"></i></div><span class="num" id="vIrl">–</span>
@@ -102,13 +111,13 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
 </div>
 
 <div class="card" id="m6">
-  <h2>6 · 💡 LED · 🔊 เสียง <small>(LED test)</small></h2>
+  <h2>6 · 💡 LED · 🔊 เสียง <small>(LED test)</small><span class="badge">● กำลังทำงาน</span></h2>
   <div class="row"><button id="bLed1">LED ติด</button><button id="bLed0">LED ดับ</button><button id="bBlink">กะพริบ</button> ทุก <input type="number" id="blinkMs" value="500" min="100" max="2000" step="50"> ms</div>
   <div class="row">ความถี่ <input type="number" id="bz" value="1000" min="20" max="20000"> Hz · <input type="number" id="bzms" value="150" min="1" max="1000"> ms <button id="bBeep">🔊 บี๊บ</button></div>
 </div>
 
 <div class="card" id="m7">
-  <h2>7 · 🔢 นับ tick → CPR <small>(Count ticks · หมุนล้อด้วยมือ)</small></h2>
+  <h2>7 · 🔢 นับ tick → CPR <small>(Count ticks · หมุนล้อด้วยมือ)</small><span class="badge">● กำลังทำงาน</span></h2>
   <div class="row"><button id="bZero">ล้างตัวนับ + ปล่อยล้อ</button> หมุนล้อด้วยมือ <input type="number" id="revs" value="10" min="1" step="1"> รอบ</div>
   <div class="row"><button id="bCoast">ล้อหมุนฟรี (coast)</button><button id="bBrake">เบรกไฟฟ้า (เหมือนตอนวิ่ง)</button></div>
   <p class="dim">ตอนล้อหยุด เฟิร์มแวร์ "เบรกไฟฟ้า" (ขั้วมอเตอร์ถูกต่อเข้าหากัน) หมุนมือจะฝืดมาก — ก่อนนับให้กด "ปล่อยล้อ" · เมนู 7 บน OLED ปล่อยให้เอง (v2026.10.14d)</p>
@@ -118,7 +127,7 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
 </div>
 
 <div class="card" id="m89">
-  <h2>8–9 · 📶 เครือข่าย / SSH <small>(ที่บอร์ดได้รับจาก Jetson)</small></h2>
+  <h2>8–9 · 📶 เครือข่าย / SSH <small>(ที่บอร์ดได้รับจาก Jetson)</small><span class="badge">● กำลังทำงาน</span></h2>
   <div class="kv" style="grid-template-columns:90px 1fr">
     <span>host</span><span id="nH">–</span><span>SSID</span><span id="nS">–</span>
     <span>IP</span><span id="nI">–</span><span>SSH</span><span id="nU">–</span><span>สถานะ</span><span id="nL">–</span>
@@ -127,7 +136,7 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
 </div>
 
 <div class="card wide" id="m10">
-  <h2>10 · 📈 จูน PID ความเร็วล้อ <small>(PID tune · ทดสอบแบบขั้นบันได)</small></h2>
+  <h2>10 · 📈 จูน PID ความเร็วล้อ <small>(PID tune · ทดสอบแบบขั้นบันได)</small><span class="badge">● กำลังทำงาน</span></h2>
   <div class="row" style="align-items:flex-start;gap:20px">
     <table>
       <tr><th></th><th>Kp</th><th>Ki</th><th>Kd</th></tr>
@@ -164,7 +173,7 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
 </div>
 
 <div class="card wide" id="guide">
-  <h2>📖 อ่านกราฟ step ให้เป็น — กราฟที่ดีหน้าตาแบบไหน</h2>
+  <h2>📖 อ่านกราฟ step ให้เป็น — กราฟที่ดีหน้าตาแบบไหน<span class="badge">● กำลังทำงาน</span></h2>
   <img src="lrb_pid_guide.png" alt="ตัวอย่างกราฟ 6 แบบจากหุ่นจริง" style="width:100%;max-width:1100px;border-radius:10px;border:1px solid var(--line)">
   <div class="tablewrap"><table style="margin-top:8px">
     <tr><th>ดูอะไร</th><th>กราฟที่ดี (เป้าของหุ่นตัวนี้)</th><th>ถ้าไม่ได้ ให้ปรับ</th></tr>
@@ -179,7 +188,7 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
 </div>
 
 <div class="card wide" id="cfgp">
-  <h2>⚙️ ค่าหุ่น (lotusrosbot_config.h) + อัปโหลดเฟิร์มแวร์</h2>
+  <h2>⚙️ ค่าหุ่น (lotusrosbot_config.h) + อัปโหลดเฟิร์มแวร์<span class="badge">● กำลังทำงาน</span></h2>
   <p class="dim" id="cfgPath"></p>
   <div class="row"><button id="bCfgLoad">โหลดค่าจากไฟล์</button><button id="bCfgPid">ใส่ค่า PID ที่ใช้อยู่ในบอร์ด</button></div>
   <div class="cfg" id="cfgForm"></div>
@@ -196,7 +205,7 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
 </div>
 
 <div class="card wide" id="tests">
-  <h2>🧪 ทดสอบ T1–T7 <small>(โหมด ROS2 · ใช้ระบบจริงเหมือนตอนวิ่งงาน)</small></h2>
+  <h2>🧪 ทดสอบ T1–T7 <small>(โหมด ROS2 · ใช้ระบบจริงเหมือนตอนวิ่งงาน)</small><span class="badge">● กำลังทำงาน</span></h2>
   <div class="row"><b>ระบบ ROS2:</b> <span id="rosSt">–</span>
     <button class="pri" id="bRosOn">เปิดระบบ ROS2 (ตัดโหมดคาลิเบรต)</button><button id="bRosOff">ปิดระบบ ROS2</button></div>
   <p class="dim">เปิดระบบ = บอร์ดรีบูตเข้าโหมด ROS2 → เปิด agent + bringup (LiDAR, odom) ให้เอง ~20 วินาที · หุ่นต้องจอดนิ่งช่วงเปิด · ค่า PID ที่ใช้ = ค่าที่ "บันทึกลงบอร์ด" (ถ้าไม่ได้บันทึก = ค่าในโค้ด) · ทดสอบเสร็จกด "ปิดระบบ ROS2" ก่อนกลับมาใช้การ์ด 1–10</p>
@@ -240,6 +249,7 @@ function poll(){
   fetch('api/state',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
     S=j; $('fw').textContent=j.fw||'';
     if(j.connected) show('ok','✅ '+j.msg);
+    else if(j.port_owner&&j.port_owner.indexOf('agent')>=0) show('warn','🧪 อยู่โหมด ROS2 (ทดสอบ T) — การ์ด 1–10 ใช้ได้เมื่อกด "ปิดระบบ ROS2" ด้านล่าง');
     else if(j.port_owner) show('warn','⚠️ '+j.port_owner);
     else show('', j.msg||'ยังไม่เชื่อมต่อ');
     var s=j.status||{};
@@ -306,8 +316,9 @@ $('bReset').onclick=function(){if(!confirm('ลบค่าที่บันท
 
 $('bStep').onclick=function(){
   if(!needSafe())return;
-  show('warn','⏳ กำลังทดสอบ… (กด BTN บนบอร์ดเพื่อหยุด)');
+  show('warn','⏳ กำลังทดสอบ… (กด BTN บนบอร์ดเพื่อหยุด)');stepping=true;activity();
   post('api/step',{side:$('side').value,rpm:+$('rpm').value,hold:+$('hold').value}).then(function(j){
+    stepping=false;activity();
     if(!j.data||!j.data.t||!j.data.t.length){show('bad','⛔ '+(j.msg||'ไม่ได้ข้อมูล'));return;}
     runNo++; j.no=runNo;
     if(!$('keep').checked)runs=[]; runs.push(j); runs=runs.slice(-3);
@@ -327,6 +338,21 @@ function addRow(j){
     cells.forEach(function(c,i){var td=document.createElement('td');td.textContent=c;if(i===2)td.style.color=w==='L'?'var(--L)':'var(--R)';tr.appendChild(td);});
     $('mt').appendChild(tr);});
 }
+
+// ── ไฮไลต์การ์ดที่กำลังทำงาน + แถบด้านบน ──
+var stepping=false, JOBST=null;
+function jobCard(name){if(!name)return null;if(name.indexOf('CPR')>=0)return 'm23';if(name.indexOf('อัปโหลด')>=0||name.indexOf('ย้อน')>=0)return 'cfgp';if(name.indexOf('ROS2')>=0||/^T\d/.test(name))return 'tests';return null;}
+function activity(){var a={};
+  if(holdDir)a.m1='หมุนมอเตอร์ (กดค้าง)';
+  if(typeof blinkT!=='undefined'&&blinkT)a.m6='LED กะพริบ';
+  if(stepping)a.m10='ทดสอบ step PID';
+  if(JOBST&&JOBST.running){var c=jobCard(JOBST.name);if(c)a[c]=JOBST.name;}
+  ['m1','m23','m4','m5','m6','m7','m89','m10','guide','cfgp','tests'].forEach(function(k){var e=$(k);if(e)e.classList.toggle('active',!!a[k]);});
+  var ks=Object.keys(a);$('busybar').classList.toggle('on',ks.length>0);
+  if(ks.length){$('busyTxt').textContent=a[ks[0]]+(ks.length>1?' (+'+(ks.length-1)+')':'');$('busyTxt').href='#'+ks[0];}}
+setInterval(function(){fetch('api/job',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){JOBST=j;activity();}).catch(function(){});},1000);
+setInterval(activity,300);
+$('busyStop').onclick=function(){motorStop();if(typeof blinkT!=='undefined'&&blinkT){$('bBlink').click();}post('api/job/cancel');cmd('@STOP');};
 
 // ── LED กะพริบ ──
 var blinkT=null,blinkOn=false;
