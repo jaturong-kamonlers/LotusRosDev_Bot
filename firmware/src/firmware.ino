@@ -94,7 +94,7 @@ static inline void set_microros_net_transports(IPAddress agent_ip, uint16_t agen
 #ifndef NODE_NAME
 #define NODE_NAME "linorobot_base_node"
 #endif
-#define LOTUS_FW_VERSION "v2026.10.13a"   // แสดงบน OLED ตอนบูต — เปลี่ยนทุกครั้งที่ flash เวอร์ชันใหม่
+#define LOTUS_FW_VERSION "v2026.10.14a"   // แสดงบน OLED ตอนบูต — เปลี่ยนทุกครั้งที่ flash เวอร์ชันใหม่
 #ifndef TOPIC_PREFIX
 #define TOPIC_PREFIX
 #endif
@@ -163,6 +163,18 @@ rcl_timer_t     control_timer;
 unsigned long long time_offset    = 0;
 unsigned long      prev_cmd_time  = 0;
 unsigned long      prev_odom_update = 0;
+
+// ── มุมหมุน (yaw) จาก gyro รวมบนบอร์ดทุก 20 ms (v2026.10.14a) ──────────────
+//   เดิม: Jetson (odom_tf_relay.py) รวม gyro เองจากค่าที่ได้แค่ ~3 ครั้ง/วินาที → มุมคลาดทุกครั้งที่เลี้ยว
+//   ตอนนี้: รวมที่นี่ 50 ครั้ง/วินาที แล้วส่งมุมไปใน /imu/data.orientation (yaw) · ขนาดข้อมูลบนสายเท่าเดิม
+#define FW_YAW_COV 0.0004               // orientation_covariance[8] = ป้ายบอก relay ว่า yaw นี้รวมบนบอร์ดแล้ว
+static double        gyaw_acc     = 0.0; // มุมรวม (rad) ไม่ตัดรอบ
+static double        gz_bias      = 0.0; // bias ของ gyro z (rad/s)
+static int           gbias_n      = 0;   // จำนวนค่าที่ใช้หา bias ตอนเริ่ม (ครบ 50 = 1 วินาที)
+static unsigned long gyaw_prev_us = 0;
+static double        gyaw_pub_acc = 0.0; // มุมรวม ณ ตอนส่งครั้งก่อน (ใช้หาความเร็วหมุนเฉลี่ย)
+static unsigned long gyaw_pub_us  = 0;
+static float         last_rpm1 = 0.0f, last_rpm2 = 0.0f;   // rpm ล้อล่าสุด (ใช้ตรวจว่าจอดนิ่ง)
 
 enum states {
     WAITING_AGENT,
@@ -315,6 +327,7 @@ void readSensors();
 void buzzerCheck();
 void moveBase();
 void publishData();
+void updateGyroYaw();
 bool syncTime();
 struct timespec getTime();
 void rclErrorLoop();
@@ -595,7 +608,8 @@ void controlCallback(rcl_timer_t * timer, int64_t last_call_time)
 {
     RCLC_UNUSED(last_call_time);
     if (timer != NULL) {
-        moveBase();   // PID/control ทำทุกรอบ 50Hz (คุมมอเตอร์ลื่น)
+        moveBase();        // PID/control ทำทุกรอบ 50Hz (คุมมอเตอร์ลื่น)
+        updateGyroYaw();   // รวม gyro เป็นมุมทุกรอบ 50Hz (v2026.10.14a)
         // throttle publishData เหลือ ~12.5Hz (ทุกรอบที่ 4) — serial 115200 พับ odom+imu+mag
         // ทุก 20ms(50Hz) จะตัน (~36KB/s > 11.5KB/s) → cmd_vel inbound โดนอด มอเตอร์หยุด. 2026-07-04
         static uint8_t pub_div = 0;
@@ -1027,6 +1041,7 @@ void moveBase()
 
     float current_rpm1 = motor1_encoder.getRPM();
     float current_rpm2 = motor2_encoder.getRPM();
+    last_rpm1 = current_rpm1; last_rpm2 = current_rpm2;
 
     if (twist_msg.linear.x == 0.0 && twist_msg.angular.z == 0.0) {
         fullStop();
@@ -1045,6 +1060,31 @@ void moveBase()
     prev_odom_update = now;
     odometry.update(vel_dt,
         current_vel.linear_x, current_vel.linear_y, current_vel.angular_z);
+}
+
+// ════════════════════════════════════════════════════════════════
+//  updateGyroYaw — รวม gyro z เป็นมุม (เรียกทุก 20 ms จาก controlCallback)
+// ════════════════════════════════════════════════════════════════
+void updateGyroYaw()
+{
+    unsigned long now_us = micros();
+    double gz = imu.readGyroscope().z;              // rad/s (ยังไม่หัก bias · ไม่ตัดค่าเล็กทิ้ง การหมุนช้าจะได้ไม่หาย)
+    if (gyaw_prev_us == 0) { gyaw_prev_us = now_us; return; }
+    double dt = (now_us - gyaw_prev_us) * 1e-6;
+    gyaw_prev_us = now_us;
+    if (dt <= 0.0 || dt > 0.2) return;              // ข้ามช่วงสะดุด (เช่น เพิ่งต่อ agent ใหม่)
+
+    if (gbias_n < 50) {                             // 1 วินาทีแรกหลังต่อ agent: หา bias (หุ่นต้องจอดนิ่ง)
+        gz_bias += (gz - gz_bias) / (++gbias_n);
+        return;
+    }
+    double w = gz - gz_bias;
+    bool still = (millis() - prev_cmd_time) > 500 && fabs(last_rpm1) < 0.5 && fabs(last_rpm2) < 0.5;
+    if (still && fabs(w) < 0.05) {                  // จอดนิ่งจริง (ไม่มีคำสั่ง ล้อไม่หมุน gyro เบา): ไม่รวมมุม
+        gz_bias += 0.02 * w;                        //   + ค่อย ๆ ปรับ bias ตามอุณหภูมิ (กันมุมไหลตอนจอด)
+        return;
+    }
+    gyaw_acc += w * dt;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -1068,7 +1108,8 @@ void publishData()
     pitch = atan2(-imu_msg.linear_acceleration.y,
                   sqrt(imu_msg.linear_acceleration.y * imu_msg.linear_acceleration.y +
                        imu_msg.linear_acceleration.z * imu_msg.linear_acceleration.z));
-    yaw   = atan2(mag_msg.magnetic_field.y, mag_msg.magnetic_field.x);
+    // v2026.10.14a: yaw = มุมจาก gyro ที่รวมบนบอร์ด (เดิมใช้เข็มทิศ ซึ่ง MPU6050 ไม่มี → ได้ 0 ตลอด)
+    yaw   = atan2(sin(gyaw_acc), cos(gyaw_acc));
 
     double cy = cos(yaw * 0.5), sy = sin(yaw * 0.5);
     double cp = cos(pitch * 0.5), sp = sin(pitch * 0.5);
@@ -1077,6 +1118,13 @@ void publishData()
     imu_msg.orientation.y = sy * cp * sr + cy * sp * cr;
     imu_msg.orientation.z = sy * cp * cr - cy * sp * sr;
     imu_msg.orientation.w = cy * cp * cr + sy * sp * sr;
+    imu_msg.orientation_covariance[8] = FW_YAW_COV;  // ป้าย: yaw รวมบนบอร์ดแล้ว (relay ใช้ตัดสินโหมด)
+
+    // ความเร็วหมุน = ค่าเฉลี่ยตั้งแต่ส่งครั้งก่อน (แทนค่าที่อ่านครั้งเดียว) · จอดนิ่ง = 0
+    unsigned long pub_us = micros();
+    if (gyaw_pub_us != 0 && pub_us != gyaw_pub_us)
+        imu_msg.angular_velocity.z = (gyaw_acc - gyaw_pub_acc) / ((pub_us - gyaw_pub_us) * 1e-6);
+    gyaw_pub_acc = gyaw_acc; gyaw_pub_us = pub_us;
 
     struct timespec ts = getTime();
     odom_msg.header.stamp.sec  = ts.tv_sec;
