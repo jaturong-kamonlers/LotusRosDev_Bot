@@ -199,7 +199,7 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
 <script>
 (function(){
 var $=function(i){return document.getElementById(i);};
-var S={connected:false,busy:false,pid:null}, pidShown=false, runs=[], runNo=0, holdTimer=null, holdDir=null;
+var S={connected:false,busy:false,pid:null}, pidShown=false, lastPid='', pidDirty=false, runs=[], runNo=0, holdTimer=null, holdDir=null;
 function show(cls,msg){var e=$('st');e.className=cls;e.textContent=msg;}
 function post(path,body){return fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})}).then(function(r){return r.json();});}
 function cmd(line){return post('api/cmd',{line:line}).then(function(j){if(j.pid&&line.indexOf('@PID')===0)setPid(j.pid);if(!j.ok&&j.msg)show('bad','⛔ '+j.msg);return j;});}
@@ -226,7 +226,8 @@ function poll(){
     $('cT1').textContent=f(s.enc1); $('cT2').textContent=f(s.enc2);
     $('cC1').textContent=s.enc1==null?'–':Math.abs(s.enc1/rv).toFixed(0); $('cC2').textContent=s.enc2==null?'–':Math.abs(s.enc2/rv).toFixed(0);
     var n=j.net; if(n){$('nH').textContent=n.host||'–';$('nS').textContent=n.ssid||'–';$('nI').textContent=n.ip||'–';$('nU').textContent=n.user?('ssh '+n.user+'@'+n.ip):'–';$('nL').textContent=n.live?'live':'ไม่ (ไม่ได้รับใน 10 วิ)';}
-    if(j.pid&&!pidShown){setPid(j.pid);pidShown=true;}
+    // ช่อง PID ตามค่าจริงในบอร์ดเสมอ (ยกเว้นตอนกำลังพิมพ์แก้)
+    if(j.pid){var pj=JSON.stringify(j.pid);if(pj!==lastPid&&!pidDirty){setPid(j.pid);}lastPid=pj;}
     $('log').textContent=(j.log||[]).slice().reverse().join('\n');
     ['bStep','bApply','bSave','bReset','bZero','bLed1','bLed0','bBeep','bSrvSend','bSrvOff'].forEach(function(b){$(b).disabled=!j.connected||j.busy;});
     $('bConn').disabled=j.connected; $('bDisc').disabled=!j.connected;
@@ -258,15 +259,16 @@ $('bSrvOff').onclick=function(){cmd('@SERVOOFF');};
 // ── PID ──
 function setPid(p){S.pid=p;
   ['L','R'].forEach(function(w){['kp','ki','kd'].forEach(function(k,i){$(k+w).value=p[w][i];});});
-  $('pSrc').textContent=p.src==='nvs'?'บันทึกไว้ในบอร์ด (NVS)':'ค่าในโค้ด (lotusrosbot_config.h)';
+  $('pSrc').textContent='ในบอร์ดตอนนี้ · '+(p.src==='nvs'?'บันทึกไว้ในบอร์ด (NVS)':'ยังไม่บันทึก (บอร์ดรีบูตแล้วกลับเป็นค่าในโค้ด)');
   var L=p.L,R=p.R;
   $('defs').value='#define K_P_L   '+L[0].toFixed(3)+'\n#define K_I_L   '+L[1].toFixed(3)+'\n#define K_D_L   '+L[2].toFixed(3)+'\n\n#define K_P_R   '+R[0].toFixed(3)+'\n#define K_I_R   '+R[1].toFixed(3)+'\n#define K_D_R   '+R[2].toFixed(3);
 }
-['kpL','kiL','kdL'].forEach(function(id){$(id).addEventListener('input',function(){if($('same').checked)$(id.replace('L','R')).value=this.value;});});
+['kpL','kiL','kdL','kpR','kiR','kdR'].forEach(function(id){$(id).addEventListener('input',function(){pidDirty=true;$('pSrc').textContent='⚠️ แก้แล้ว ยังไม่ได้กด "ใช้ค่านี้"';if($('same').checked&&id.indexOf('L')>0)$(id.replace('L','R')).value=this.value;});});
 $('bApply').onclick=function(){
   var g=function(w){return [+$('kp'+w).value,+$('ki'+w).value,+$('kd'+w).value];};
   var L=g('L'),R=g('R');
   if(L.concat(R).some(function(v){return !(v>=0&&v<50);})){show('bad','⛔ ค่า PID ต้องอยู่ระหว่าง 0–50');return;}
+  pidDirty=false;
   cmd('@PIDSET L '+L.join(' ')).then(function(){return cmd('@PIDSET R '+R.join(' '));}).then(function(){show('ok','✅ ใช้ค่าใหม่แล้ว (ยังไม่บันทึก — รีบูตแล้วกลับค่าเดิม)');});
 };
 $('bSave').onclick=function(){if(!confirm('บันทึกค่า PID ที่ใช้อยู่ลงบอร์ด? (ใช้ทันทีในโหมด ROS2 หลังรีบูต)'))return;cmd('@PIDSAVE').then(function(){return cmd('@PIDGET');}).then(function(){show('ok','💾 บันทึกลงบอร์ดแล้ว');});};
