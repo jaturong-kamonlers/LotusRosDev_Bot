@@ -54,7 +54,7 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
     <button id="bDisc">ตัดการเชื่อมต่อ (กลับโหมด ROS2)</button>
     <div id="st">กำลังโหลด…</div>
   </div>
-  <div class="nav">ไปที่เมนู (เรียงเหมือนจอ OLED): <a href="#m1">1 มอเตอร์</a><a href="#m23">2–3 CPR อัตโนมัติ</a><a href="#m4">4 Servo</a><a href="#m5">5 สถานะสด</a><a href="#m6">6 LED/เสียง</a><a href="#m7">7 นับ tick</a><a href="#m89">8–9 เครือข่าย</a><a href="#m10">10 จูน PID</a><a href="#guide">📖 อ่านกราฟ PID</a><a href="#cfgp">⚙️ ค่าหุ่น + อัปโหลด</a></div>
+  <div class="nav">ไปที่เมนู (เรียงเหมือนจอ OLED): <a href="#m1">1 มอเตอร์</a><a href="#m23">2–3 CPR อัตโนมัติ</a><a href="#m4">4 Servo</a><a href="#m5">5 สถานะสด</a><a href="#m6">6 LED/เสียง</a><a href="#m7">7 นับ tick</a><a href="#m89">8–9 เครือข่าย</a><a href="#m10">10 จูน PID</a><a href="#guide">📖 อ่านกราฟ PID</a><a href="#cfgp">⚙️ ค่าหุ่น + อัปโหลด</a><a href="#tests">🧪 ทดสอบ T1–T7</a></div>
   <label class="safe"><input type="checkbox" id="safe"> ล้อลอยจากพื้นแล้ว และมีคนเฝ้าหุ่น (ต้องติ๊กก่อนหมุนมอเตอร์)</label>
   <p class="dim">ใช้สาย USB เดียวกับ micro-ROS — ปิด agent/ภารกิจก่อน (<code>bash ~/stop.sh all</code>) · ปุ่ม BTN บนบอร์ด = หยุดทุกอย่าง · มอเตอร์หยุดเองถ้าหน้านี้เงียบเกิน 0.3 วินาที</p>
 </div>
@@ -193,6 +193,33 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
     <p class="dim">ย้อนเฉพาะเฟิร์มแวร์ในบอร์ด — ไฟล์ config ไม่ย้อนตาม (ย้อนได้จาก .bak_web_… หรือ git) · เวอร์ชันก่อน 14c ต่อหน้าเว็บนี้ไม่ได้</p>
   </details>
   <p class="dim">ขั้นตอน: แก้ค่า → ① ดูสิ่งที่จะเปลี่ยน → ② บันทึก (สำรองไฟล์เดิม + git commit ในเครื่อง) → ③ Build + อัปโหลด (~2 นาที · ต้องปิด agent/ภารกิจ · สำรอง .bin ให้เอง) → บอร์ดรีบูตแล้วหน้าเว็บต่อกลับเอง · ค่า PID ไม่ต้องอัปโหลดก็ได้ (กด 💾 บันทึกลงบอร์ด)</p>
+</div>
+
+<div class="card wide" id="tests">
+  <h2>🧪 ทดสอบ T1–T7 <small>(โหมด ROS2 · ใช้ระบบจริงเหมือนตอนวิ่งงาน)</small></h2>
+  <div class="row"><b>ระบบ ROS2:</b> <span id="rosSt">–</span>
+    <button class="pri" id="bRosOn">เปิดระบบ ROS2 (ตัดโหมดคาลิเบรต)</button><button id="bRosOff">ปิดระบบ ROS2</button></div>
+  <p class="dim">เปิดระบบ = บอร์ดรีบูตเข้าโหมด ROS2 → เปิด agent + bringup (LiDAR, odom) ให้เอง ~20 วินาที · หุ่นต้องจอดนิ่งช่วงเปิด · ค่า PID ที่ใช้ = ค่าที่ "บันทึกลงบอร์ด" (ถ้าไม่ได้บันทึก = ค่าในโค้ด) · ทดสอบเสร็จกด "ปิดระบบ ROS2" ก่อนกลับมาใช้การ์ด 1–10</p>
+  <label class="safe"><input type="checkbox" id="tSafe"> หุ่นอยู่บนพื้น · พื้นที่ว่างรอบตัว ≥ 1.5 m (T5 ต้องมีด้านหน้าและซ้าย ≥ 1.5 m) · มีคนเฝ้าพร้อมยกหุ่น</label>
+  <table id="tTab" style="margin-top:8px;width:100%">
+    <tr><th>ทดสอบ</th><th>ทำอะไร</th><th>เกณฑ์ผ่าน</th><th>ก่อนแก้ (13 ต.ค.)</th><th></th><th>ผลล่าสุด</th></tr>
+    <tr><td><b>T1</b> ตรวจระบบ</td><td class="dim">node, ความถี่ odom/imu/scan, yaw จากบอร์ด · ไม่ขยับ</td><td>ครบ 5 ข้อ</td><td>–</td><td><button data-t="t1">▶</button></td><td id="r_t1">–</td></tr>
+    <tr><td><b>T2</b> มุมไหลตอนจอด</td><td class="dim">วัด yaw 2 นาที · ไม่ขยับ</td><td>≤ 1°</td><td>0.00° (3 นาที, 14a)</td><td><button data-t="t2">▶</button></td><td id="r_t2">–</td></tr>
+    <tr><td><b>T3</b> หมุน 360°</td><td class="dim">ซ้าย 360° แล้วขวา 360° · วัดมุมคลาดด้วย LiDAR</td><td>คลาด ≤ 5°</td><td>(ยังไม่เคยวัดด้วย LiDAR)</td><td><button data-t="t3">▶</button></td><td id="r_t3">–</td></tr>
+    <tr><td><b>T4</b> สี่เหลี่ยมช้า</td><td class="dim">ด้าน 0.5 m · 0.10 m/s · 1 รอบ</td><td>ทิศเพี้ยน ≤ 8°/รอบ</td><td>−16°/รอบ (odom)</td><td><button data-t="t4">▶</button></td><td id="r_t4">–</td></tr>
+    <tr><td><b>T5</b> สี่เหลี่ยมเร็ว</td><td class="dim">ด้าน 1 m · 0.34 m/s (100%) · 3 รอบ</td><td>ทิศเพี้ยน ≤ 8°/รอบ</td><td>−21° ถึง −30°/รอบ (odom)</td><td><button data-t="t5">▶</button></td><td id="r_t5">–</td></tr>
+  </table>
+  <div class="row"><button class="red" id="bTStop">■ หยุดการทดสอบทันที</button><span class="dim">ล้อหยุดเองใน 0.2 วินาทีถ้าคำสั่งขาด · ยกหุ่นได้ทุกเมื่อ</span></div>
+  <div class="prog"><i id="tProg" style="width:0"></i></div>
+  <pre class="box" id="tLog">(ยังไม่มีการทดสอบ)</pre>
+  <p><b>T6–T7 (ทำในสนาม · ใช้ RViz) — ติ๊กเมื่อผ่าน</b></p>
+  <div class="dim">
+    <label><input type="checkbox" class="chk" data-k="t6a"> T6 SLAM สร้างแผนที่ 1 รอบห้อง — แผนที่ไม่ซ้อน/ไม่เบี้ยว (บท 20)</label><br>
+    <label><input type="checkbox" class="chk" data-k="t6b"> T6 Nav2 ไปเป้า 2 จุดถึงจริง (บท 21)</label><br>
+    <label><input type="checkbox" class="chk" data-k="t7a"> T7 ภารกิจ 1 (mission.launch.py) ทำงานเหมือนเดิม</label><br>
+    <label><input type="checkbox" class="chk" data-k="t7b"> T7 ภารกิจ 2 ทำงานเหมือนเดิม</label>
+  </div>
+  <details><summary>ประวัติผลทดสอบ</summary><pre class="box" id="tHist"></pre></details>
 </div>
 
 <div class="card wide"><h2>📝 บันทึก</h2><div id="log"></div></div>
@@ -354,6 +381,33 @@ $('bBakLoad').onclick=function(){fetch('api/backups').then(function(r){return r.
 $('bRollback').onclick=function(){var f=$('bakSel').value;if(!f){show('warn','โหลดรายการก่อน');return;}if(!confirm('เขียน '+f+' ลงบอร์ด?'))return;
   post('api/rollback',{file:f}).then(function(j){show(j.ok?'warn':'bad',j.ok?'⏳ กำลังเขียน…':'⛔ '+j.msg);jobPoll();});};
 jobPoll();
+
+// ── ทดสอบ T ──
+function tSummary(r){if(!r)return '–';var t=r.test||'';
+  if(t==='t1')return (r.ok?'✅ ':'❌ ')+Object.keys(r.checks||{}).filter(function(k){return r.checks[k];}).length+'/5 · odom '+(r.hz?r.hz.odom:'–')+' Hz scan '+(r.hz?r.hz.scan:'–')+' Hz';
+  if(t==='t2')return (r.ok?'✅ ':'❌ ')+'ไหล '+r.drift_deg+'° ใน '+r.sec+' วิ (สูงสุด '+r.worst_deg+'°)';
+  if(t==='t3'){var L=r['ซ้าย']||{},R=r['ขวา']||{};return (r.ok?'✅ ':'❌ ')+'LiDAR: ซ้าย '+L.lidar_err_deg+'° · ขวา '+R.lidar_err_deg+'° (odom บอก '+L.odom_err_deg+' / '+R.odom_err_deg+')';}
+  if(t==='t4'||t==='t5'){var l=(r.laps||[]).slice(-1)[0]||{};return (r.ok?'✅ ':'❌ ')+'ทิศเพี้ยนจริง (LiDAR) '+r.lidar_head_deg+'° = '+r.lidar_head_per_lap+'°/รอบ · odom: ห่างจุดเริ่ม '+l.odom_dist_m+' m ทิศ '+l.odom_head_deg+'°';}
+  return JSON.stringify(r);}
+function tHist(){fetch('api/tests').then(function(r){return r.json();}).then(function(j){var last={};
+  (j.history||[]).forEach(function(h){last[h.test]=Object.assign({test:h.test},h.result,{_t:h.t});});
+  Object.keys(last).forEach(function(k){var e=$('r_'+k);if(e)e.textContent=tSummary(last[k])+' · '+last[k]._t.slice(5,16);});
+  $('tHist').textContent=(j.history||[]).slice().reverse().map(function(h){return h.t+'  '+h.name+'  →  '+tSummary(Object.assign({test:h.test},h.result));}).join('\n')||'(ยังไม่มี)';});}
+function rosPoll(){fetch('api/ros').then(function(r){return r.json();}).then(function(j){$('rosSt').textContent=(j.agent&&j.bringup)?'🟢 เปิดอยู่ (agent + bringup)':j.agent?'🟡 agent อย่างเดียว':'⚪ ปิดอยู่';});}
+setInterval(rosPoll,2000);rosPoll();tHist();
+$('bRosOn').onclick=function(){post('api/ros/start').then(function(j){show(j.ok?'warn':'bad',j.ok?'⏳ กำลังเปิดระบบ ROS2… (หุ่นจอดนิ่ง)':'⛔ '+j.msg);tJob();});};
+$('bRosOff').onclick=function(){post('api/ros/stop').then(function(j){show(j.ok?'':'bad',j.msg);rosPoll();});};
+function tJob(){fetch('api/job',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
+  $('tProg').style.width=Math.round((j.progress||0)*100)+'%';
+  if(j.name)$('tLog').textContent=(j.running?'⏳ ':j.ok?'✅ ':'⚠️ ')+j.name+'\n'+(j.log||[]).join('\n');$('tLog').scrollTop=1e9;
+  if(j.running)setTimeout(tJob,700);else{tHist();rosPoll();}});}
+document.querySelectorAll('button[data-t]').forEach(function(b){b.onclick=function(){var id=b.dataset.t,mv=['t3','t4','t5'].indexOf(id)>=0;
+  if(mv&&!$('tSafe').checked){show('warn','⚠️ ติ๊กยืนยันพื้นที่ปลอดภัย + มีคนเฝ้าก่อน');return;}
+  if(mv&&!confirm('หุ่นจะเคลื่อนที่บนพื้น — พื้นที่ว่างและมีคนเฝ้าแล้ว?'))return;
+  post('api/test',{id:id,safe:$('tSafe').checked}).then(function(j){show(j.ok?'warn':'bad',j.ok?'⏳ กำลังทดสอบ '+id.toUpperCase()+'…':'⛔ '+j.msg);tJob();});};});
+$('bTStop').onclick=function(){post('api/job/cancel');};
+document.querySelectorAll('.chk').forEach(function(c){try{c.checked=localStorage.getItem('lrb_'+c.dataset.k)==='1';}catch(e){}
+  c.onchange=function(){try{localStorage.setItem('lrb_'+c.dataset.k,c.checked?'1':'0');}catch(e){}};});
 
 function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
 function draw(){

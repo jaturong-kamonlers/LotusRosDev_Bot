@@ -541,6 +541,157 @@ def job_rollback(path):
     return True
 
 
+# ════════════════════════════════════════════════════════════════
+#  โหมด ROS2 สำหรับทดสอบ T — เปิด/ปิด agent + bringup และรันสคริปต์ใน tools/lrb_tests
+# ════════════════════════════════════════════════════════════════
+import signal as _sig
+TESTS_DIR = os.path.join(HERE, 'lrb_tests')
+HIST = os.path.join(HERE, 'lrb_test_results.json')
+ROS = {'agent': None, 'bringup': None, 'msg': 'ปิดอยู่'}
+ENV = 'source ~/ros_env.sh >/dev/null 2>&1; source ~/lotus_ws/install/local_setup.bash; '
+TESTS = {   # id: (ชื่อ, สคริปต์, อาร์กิวเมนต์, หุ่นขยับไหม)
+    't1': ('T1 ตรวจระบบ', 't1_system.py', [], False),
+    't2': ('T2 มุมไหลตอนจอด', 't2_drift.py', ['120'], False),
+    't3': ('T3 หมุน 360° ซ้าย/ขวา', 't3_rotate.py', ['0.6'], True),
+    't4': ('T4 สี่เหลี่ยมช้า 0.5 m', 't_square.py', ['0.5', '0.10', '1', '0.6'], True),
+    't5': ('T5 สี่เหลี่ยม 1 m เร็ว 100% ×3', 't_square.py', ['1.0', '0.34', '3', '1.0'], True),
+}
+
+
+def _alive(p):
+    return p is not None and p.poll() is None
+
+
+def ros_state():
+    ext = subprocess.run(['pgrep', '-f', 'micro_ros_agent serial'], capture_output=True).returncode == 0
+    return {'agent': _alive(ROS['agent']) or ext, 'bringup': _alive(ROS['bringup']), 'msg': ROS['msg']}
+
+
+def _launch(name, logf):
+    f = open(logf, 'w')
+    return subprocess.Popen(['bash', '-c', ENV + 'cd ~; exec ros2 launch lotusbot_bringup ' + name],
+                            stdout=f, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL, start_new_session=True)
+
+
+def _kill(p, wait=5):
+    if not _alive(p):
+        return
+    try:
+        os.killpg(p.pid, _sig.SIGINT)
+        p.wait(wait)
+    except Exception:
+        try:
+            os.killpg(p.pid, _sig.SIGTERM); p.wait(3)
+        except Exception:
+            pass
+
+
+def _reset_board():
+    """รีเซ็ต ESP32 ทางขา RTS (พอร์ตต้องว่าง) → บอร์ดบูตใหม่ นับถอยหลัง 5 วิ แล้วเข้าโหมด ROS2"""
+    s = serial.Serial(); s.port, s.baudrate = PORT_DEV, 115200; s.open()
+    s.dtr = False; s.rts = True; time.sleep(0.15); s.rts = False; time.sleep(0.05)
+    s.close()
+
+
+def _board_node_up():
+    r = subprocess.run(['bash', '-c', ENV + 'ros2 node list'], capture_output=True, text=True, timeout=20)
+    return '/lotusrosbot_base' in r.stdout or '/linorobot_base_node' in r.stdout
+
+
+def job_ros_start():
+    # ⚠️ ต้องเปิด agent "หลัง" บอร์ดนับถอยหลังเสร็จและเข้าโหมด ROS2 แล้ว
+    #    ถ้าเปิดระหว่างนับถอยหลัง บอร์ดต่อ session ได้แต่สร้าง topic ไม่สำเร็จ วนไม่จบ (พบ 13 ต.ค. 2026)
+    if ros_state()['agent'] and _board_node_up():
+        job_log('agent + บอร์ดทำงานอยู่แล้ว')
+    else:
+        _kill(ROS['agent']); ROS['agent'] = None
+        for attempt in (1, 2):
+            if LINK.state['connected']:
+                job_log('ตัดโหมดคาลิเบรต → บอร์ดรีบูต')
+                LINK.disconnect(reboot=True)
+            else:
+                why = LINK.port_owner()
+                if why:
+                    job_log('❌ ' + why); return False
+                job_log('รีเซ็ตบอร์ด ESP32')
+                _reset_board()
+            job_log('รอบอร์ดนับถอยหลังแล้วเข้าโหมด ROS2 (~9 วินาที)…')
+            for i in range(90):
+                time.sleep(0.1); JOB['progress'] = i / 90 * 0.4
+            job_log('เปิด micro-ROS agent…')
+            ROS['agent'] = _launch('agent.launch.py', '/dev/shm/lrbweb_agent.log')
+            ok = False
+            for i in range(40):
+                time.sleep(0.5); JOB['progress'] = 0.4 + i / 40 * 0.25
+                try:
+                    if 'participant created' in open('/dev/shm/lrbweb_agent.log').read():
+                        ok = True; break
+                except OSError:
+                    pass
+            if ok:
+                job_log('✅ บอร์ดสร้าง topic แล้ว (node /lotusrosbot_base)'); break
+            job_log(f'⚠️ บอร์ดยังไม่สร้าง topic (ครั้งที่ {attempt}) — ปิด agent แล้วลองใหม่')
+            _kill(ROS['agent']); ROS['agent'] = None; time.sleep(1)
+        else:
+            job_log('❌ บอร์ดต่อ agent ไม่สำเร็จ — กด RST บนบอร์ดแล้วลองใหม่'); return False
+    if not _alive(ROS['bringup']):
+        job_log('เปิดฐานหุ่น + LiDAR (bringup) — หุ่นต้องจอดนิ่ง 5 วินาทีแรก…')
+        ROS['bringup'] = _launch('bringup.launch.py', '/dev/shm/lrbweb_bringup.log')
+        for i in range(24):
+            time.sleep(0.5); JOB['progress'] = 0.65 + i / 24 * 0.35
+    ROS['msg'] = 'เปิดอยู่ (agent + bringup)'
+    job_log('✅ ระบบ ROS2 พร้อม — เริ่มทดสอบ T ได้')
+    return True
+
+
+def ros_stop():
+    _kill(ROS['bringup']); _kill(ROS['agent'])
+    ROS.update(agent=None, bringup=None, msg='ปิดอยู่')
+    LINK.log('ปิดระบบ ROS2')
+
+
+def job_test(tid):
+    name, script, args, moves = TESTS[tid]
+    if not ros_state()['agent'] or not _alive(ROS['bringup']):
+        job_log('❌ เปิดระบบ ROS2 ก่อน (ปุ่ม "เปิดระบบ ROS2")'); return False
+    cmd = ENV + 'cd ' + TESTS_DIR + '; exec python3 -u ' + script + ' ' + ' '.join(args)
+    job_log(f'▶ {name}' + (' — หุ่นจะเคลื่อนที่ (มีคนเฝ้า)' if moves else ''))
+    p = subprocess.Popen(['bash', '-c', cmd], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                         text=True, bufsize=1, start_new_session=True)
+    JOB['proc'] = p.pid
+    res = None
+    for line in p.stdout:
+        line = line.rstrip()
+        if line.startswith('RESULT '):
+            try:
+                res = json.loads(line[7:])
+            except ValueError:
+                pass
+            continue
+        if line and not line.startswith('[INFO]') and 'terminate called' not in line:
+            job_log(line)
+        if JOB['cancel']:
+            try:
+                os.killpg(p.pid, _sig.SIGINT)
+            except Exception:
+                pass
+    p.wait()
+    JOB.pop('proc', None)
+    if res is None:
+        job_log('⚠️ ไม่ได้ผลลัพธ์ (ถูกหยุด หรือสคริปต์ผิดพลาด)'); return False
+    JOB['result'] = {'test': tid, 'name': name, **res}
+    hist = []
+    try:
+        hist = json.load(open(HIST))
+    except (OSError, ValueError):
+        pass
+    hist.append({'t': time.strftime('%Y-%m-%d %H:%M:%S'), 'test': tid, 'name': name, 'result': res})
+    json.dump(hist[-200:], open(HIST, 'w'), ensure_ascii=False, indent=1)
+    job_log(('✅ ผ่าน' if res.get('ok') else '⚠️ ไม่ผ่านเกณฑ์') + ' — บันทึกผลแล้ว')
+    JOB['progress'] = 1.0
+    return bool(res.get('ok'))
+
+
 def list_backups():
     out = []
     for fn in sorted(os.listdir(BACKUP_DIR), reverse=True) if os.path.isdir(BACKUP_DIR) else []:
@@ -599,7 +750,15 @@ class Handler(BaseHTTPRequestHandler):
             except OSError as e:
                 return self._reply(500, {'msg': f'อ่าน config ไม่ได้: {e}'})
         if path == '/api/job':
-            return self._reply(200, JOB)
+            return self._reply(200, {k: v for k, v in JOB.items() if k != 'proc'})
+        if path == '/api/ros':
+            return self._reply(200, ros_state())
+        if path == '/api/tests':
+            try:
+                hist = json.load(open(HIST))
+            except (OSError, ValueError):
+                hist = []
+            return self._reply(200, {'tests': {k: {'name': v[0], 'moves': v[3]} for k, v in TESTS.items()}, 'history': hist[-60:]})
         if path == '/api/backups':
             return self._reply(200, {'files': list_backups()})
         if path == '/api/state':
@@ -674,6 +833,22 @@ class Handler(BaseHTTPRequestHandler):
             ok, msg = job_start(f'วัด CPR ×{rounds}', job_cpr, rounds, secs)
             if not ok: LINK.state['busy'] = False
             return self._reply(200, {'ok': ok, 'msg': msg})
+        if path == '/api/ros/start':
+            ok, msg = job_start('เปิดระบบ ROS2', job_ros_start)
+            return self._reply(200, {'ok': ok, 'msg': msg})
+        if path == '/api/ros/stop':
+            if JOB['running']:
+                return self._reply(409, {'ok': False, 'msg': 'มีงานทำอยู่ — หยุดงานก่อน'})
+            ros_stop()
+            return self._reply(200, {'ok': True, 'msg': 'ปิดระบบ ROS2 แล้ว'})
+        if path == '/api/test':
+            tid = str(d.get('id', ''))
+            if tid not in TESTS:
+                return self._reply(400, {'ok': False, 'msg': 'ไม่รู้จักการทดสอบ'})
+            if TESTS[tid][3] and not d.get('safe'):
+                return self._reply(400, {'ok': False, 'msg': 'ติ๊กยืนยันพื้นที่ปลอดภัย + มีคนเฝ้าก่อน'})
+            ok, msg = job_start(TESTS[tid][0], job_test, tid)
+            return self._reply(200, {'ok': ok, 'msg': msg})
         if path == '/api/job/cancel':
             JOB['cancel'] = True
             LINK.command('@STOP')
@@ -706,6 +881,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        ros_stop()
         LINK.disconnect(reboot=True)
 
 
