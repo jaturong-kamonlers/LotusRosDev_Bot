@@ -109,7 +109,9 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
 
 <div class="card" id="m7">
   <h2>7 · 🔢 นับ tick → CPR <small>(Count ticks · หมุนล้อด้วยมือ)</small></h2>
-  <div class="row"><button id="bZero">ล้างตัวนับ</button> หมุนล้อด้วยมือ <input type="number" id="revs" value="10" min="1" step="1"> รอบ</div>
+  <div class="row"><button id="bZero">ล้างตัวนับ + ปล่อยล้อ</button> หมุนล้อด้วยมือ <input type="number" id="revs" value="10" min="1" step="1"> รอบ</div>
+  <div class="row"><button id="bCoast">ล้อหมุนฟรี (coast)</button><button id="bBrake">เบรกไฟฟ้า (เหมือนตอนวิ่ง)</button></div>
+  <p class="dim">ตอนล้อหยุด เฟิร์มแวร์ "เบรกไฟฟ้า" (ขั้วมอเตอร์ถูกต่อเข้าหากัน) หมุนมือจะฝืดมาก — ก่อนนับให้กด "ปล่อยล้อ" · เมนู 7 บน OLED ปล่อยให้เอง (v2026.10.14d)</p>
   <table><tr><th></th><th>tick</th><th>CPR วัดได้</th><th>ในโค้ด</th></tr>
   <tr><td>ซ้าย M1</td><td id="cT1">–</td><td id="cC1">–</td><td>958</td></tr>
   <tr><td>ขวา M2</td><td id="cT2">–</td><td id="cC2">–</td><td>925</td></tr></table>
@@ -249,7 +251,8 @@ document.querySelectorAll('button[data-m]').forEach(function(b){
 $('bStop').onclick=function(){holdDir=null;if(holdTimer){clearInterval(holdTimer);holdTimer=null;}cmd('@STOP');};
 window.addEventListener('blur',motorStop);
 
-$('bZero').onclick=function(){cmd('@ENCZERO');};
+$('bZero').onclick=function(){cmd('@COAST').then(function(){return cmd('@ENCZERO');});};
+$('bCoast').onclick=function(){cmd('@COAST');}; $('bBrake').onclick=function(){cmd('@STOP');};
 $('bLed1').onclick=function(){cmd('@LED 1');}; $('bLed0').onclick=function(){cmd('@LED 0');};
 $('bBeep').onclick=function(){cmd('@BEEP '+Math.round(+$('bz').value)+' '+Math.round(+$('bzms').value));};
 ['s1','s2','s3'].forEach(function(i){$(i).oninput=function(){$(i+'v').textContent=this.value;};});

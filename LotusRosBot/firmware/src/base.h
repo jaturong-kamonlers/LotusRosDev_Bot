@@ -21,6 +21,7 @@ void baseLastRpm(float &rpm1, float &rpm2);   // rpm ล้อล่าสุด
 // ── ใช้ในโหมดคาลิเบรต (m = 0 ล้อซ้าย, 1 ล้อขวา) ─────────────
 void    baseMotorSpin(int m, int pwm);
 void    baseMotorBrake(int m);
+void    baseMotorCoast(int m);   // ปล่อยล้อหมุนฟรี (IN_A = IN_B = LOW) — ใช้ตอนหมุนล้อด้วยมือ (เมนู 7)
 int32_t baseEncRead(int m);
 void    baseEncWrite(int m, int32_t ticks);
 float   baseMaxRPM();

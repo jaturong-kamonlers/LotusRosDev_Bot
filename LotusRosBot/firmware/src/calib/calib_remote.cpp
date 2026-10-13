@@ -7,6 +7,7 @@
 //    @MOTOR <pwm1> <pwm2>       → หมุนมอเตอร์ตรง (-1023..1023) · ต้องส่งซ้ำทุก < 300 ms ไม่งั้นหยุดเอง
 //    @STOP                      → หยุดมอเตอร์ทั้งหมด
 //    @ENCZERO                   → ล้างตัวนับ encoder
+//    @COAST                     → ปล่อยล้อหมุนฟรี (หมุนด้วยมือได้เบา) · @STOP = กลับเป็นเบรก
 //    @LED <0|1>  @BEEP <hz> <ms>  @SERVO <a1> <a2> <a3>  @SERVOOFF
 //    @PIDGET                    → PID kp1 ki1 kd1 kp2 ki2 kd2 <nvs|cfg>
 //    @PIDSET <L|R|B> <kp> <ki> <kd>   @PIDSAVE   @PIDRESET
@@ -113,6 +114,10 @@ static bool handle(const String &line) {
     } else if (c == "STOP") {
         stopAll();
         Serial.println("OK STOP");
+    } else if (c == "COAST") {
+        motor_on = false;
+        baseMotorCoast(0); baseMotorCoast(1);
+        Serial.println("OK COAST");
     } else if (c == "ENCZERO") {
         baseEncWrite(0, 0); baseEncWrite(1, 0);
         Serial.println("OK ENCZERO");

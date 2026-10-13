@@ -28,7 +28,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PAGE = os.path.join(HERE, 'lrb_calib_web.html')
 
 # คำสั่งที่หน้าเว็บส่งได้ (กันส่งอย่างอื่นเข้าบอร์ด)
-ALLOWED = re.compile(r'^@(PING|STATUS|MOTOR -?\d{1,4} -?\d{1,4}|STOP|ENCZERO|LED [01]|BEEP \d{2,5} \d{1,4}|'
+ALLOWED = re.compile(r'^@(PING|STATUS|MOTOR -?\d{1,4} -?\d{1,4}|STOP|COAST|ENCZERO|LED [01]|BEEP \d{2,5} \d{1,4}|'
                      r'SERVO \d{1,3} \d{1,3} \d{1,3}|SERVOOFF|PIDGET|PIDSET [LRB] [\d.]+ [\d.]+ [\d.]+|'
                      r'PIDSAVE|PIDRESET|NETGET|EXIT)$')
 
@@ -58,16 +58,18 @@ class Link:
         if subprocess.run(['pgrep', '-f', 'micro_ros_agent serial'], capture_output=True).returncode == 0:
             return 'micro-ROS agent เปิดอยู่ — ปิดก่อน: bash ~/stop.sh all'
         r = subprocess.run(['fuser', real], capture_output=True, text=True)
-        if r.returncode == 0:
-            return f'มีโปรแกรมอื่นใช้พอร์ตอยู่ (pid {r.stdout.strip()})'
+        others = [x for x in r.stdout.split() if x.strip().isdigit() and int(x) != os.getpid()]
+        if others:
+            return f'มีโปรแกรมอื่นใช้พอร์ตอยู่ (pid {" ".join(others)})'
         return ''
 
     # ── อ่านบรรทัดจากบอร์ด ──
     def _read_loop(self):
         buf = b''
+        ser = self.ser
         while self.ser is not None:
             try:
-                chunk = self.ser.read(256)
+                chunk = ser.read(256)
             except Exception as e:
                 self.log(f'อ่านพอร์ตไม่ได้: {e}')
                 break
@@ -186,17 +188,27 @@ class Link:
         return True, self.state['msg']
 
     def disconnect(self, reboot=True):
-        if self.ser is not None:
+        s = self.ser
+        if s is not None:
             try:
                 if reboot and self.state['connected']:
                     with self.lock:
                         self._send('@STOP'); time.sleep(0.05)
                         self._send('@REBOOT')             # บอร์ดรีบูต → ไม่มีใครส่ง @CALIB → เข้า ROS2 เอง
                         time.sleep(0.3)
-                self.ser.close()
             except Exception:
                 pass
-        self.ser = None
+            self.ser = None                               # ให้ thread อ่านหยุดก่อน แล้วค่อยปิดพอร์ต (กันพอร์ตค้าง)
+            try:
+                s.cancel_read()
+            except Exception:
+                pass
+            if self.reader is not None:
+                self.reader.join(timeout=1.0)
+            try:
+                s.close()
+            except Exception as e:
+                self.log(f'ปิดพอร์ตไม่สำเร็จ: {e}')
         self.state.update(connected=False, msg='ตัดการเชื่อมต่อแล้ว — บอร์ดรีบูตเข้าโหมด ROS2 (เปิด agent ต่อได้)',
                           status={})
         self.log('ตัดการเชื่อมต่อ')

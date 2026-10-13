@@ -103,6 +103,13 @@ void baseLastRpm(float &rpm1, float &rpm2) { rpm1 = last_rpm1; rpm2 = last_rpm2;
 // ── โหมดคาลิเบรต ─────────────────────────────────────────────
 void    baseMotorSpin(int m, int pwm)        { motors[m]->spin(pwm); }
 void    baseMotorBrake(int m)                { motors[m]->brake(); }
+void    baseMotorCoast(int m) {
+    // brake() สั่งแค่ PWM = 0 แล้วปล่อยขาทิศค้าง → ไดรเวอร์แบบ PWM + 2 ขาทิศ (เช่น TB6612) = short brake
+    //   ขั้วมอเตอร์ถูกต่อเข้าหากัน หมุนล้อด้วยมือจะฝืดมาก · coast = ขาทิศ LOW ทั้งคู่ → ล้อหมุนฟรี
+    motors[m]->brake();
+    if (m == 0) { digitalWrite(MOTOR1_IN_A, LOW); digitalWrite(MOTOR1_IN_B, LOW); }
+    else        { digitalWrite(MOTOR2_IN_A, LOW); digitalWrite(MOTOR2_IN_B, LOW); }
+}
 int32_t baseEncRead(int m)                   { return encoders[m]->read(); }
 void    baseEncWrite(int m, int32_t ticks)   { encoders[m]->write(ticks); }
 float   baseMaxRPM()                         { return kinematics.getMaxRPM(); }

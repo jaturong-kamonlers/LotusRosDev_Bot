@@ -221,6 +221,8 @@ void calib_runCountTicks() {
     if (!calib_confirmScreen("Count ticks by hand")) return;
     calib_waitRelease();
 
+    baseMotorCoast(0);                                  // ปล่อยล้อหมุนฟรี (ไม่งั้นเบรกไฟฟ้าทำให้หมุนมือฝืด)
+    baseMotorCoast(1);
     baseEncWrite(0, 0);
     baseEncWrite(1, 0);
     while (true) {
