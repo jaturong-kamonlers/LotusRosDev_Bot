@@ -5,7 +5,7 @@
 ใช้     : python3 01_led_blink.py [จำนวนครั้ง] [วินาทีต่อจังหวะ]      เช่น  python3 01_led_blink.py 5 0.5
 ข้อความ: std_msgs/msg/Bool   true = ติด · false = ดับ
 หมายเหตุ: สั่ง /led/state ครั้งแรกแล้ว เฟิร์มแวร์จะเลิกใช้ LED เป็นไฟสถานะ จนกว่าจะกด RST
-         ถ้า log ขึ้นแต่ไฟไม่กะพริบ = agent ยังไม่เปิด (ros2 node list ต้องเห็น /linorobot_base_node)
+         ถ้า log ขึ้นแต่ไฟไม่กะพริบ = agent ยังไม่เปิด (ros2 node list ต้องเห็น /lotusrosbot_base)
 """
 import sys, time                                      # sys = อ่านค่าที่พิมพ์ต่อท้ายคำสั่ง · time = หน่วงเวลา
 import rclpy

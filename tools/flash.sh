@@ -5,19 +5,23 @@
 #   bash ~/LotusRosDev_Bot/tools/flash.sh verify    # ตรวจว่าบอร์ดมีไฟล์ล่าสุดที่ build ไว้
 # ใช้ /dev/esp32 เสมอ (ไม่ใช้ ttyUSB0 ของ platformio.ini — กันเขียนผิดใส่ LiDAR) · baud 115200 (เสถียรบน hub นี้)
 set -u
-REPO=~/LotusRosDev_Bot; FW=$REPO/firmware; BIN=$FW/.pio/build/myrobot/firmware.bin
+REPO=~/LotusRosDev_Bot
+# เฟิร์มแวร์ LotusRosBot (ตั้งแต่ 2026-10-13) · ใช้ของเดิม: FW_OLD=1 bash flash.sh upload
+if [ "${FW_OLD:-0}" = 1 ]; then FW=$REPO/firmware; ENVN=myrobot; VERF=$FW/src/firmware.ino
+else FW=$REPO/LotusRosBot/firmware; ENVN=lotusrosbot; VERF=$FW/src/version.h; fi
+BIN=$FW/.pio/build/$ENVN/firmware.bin
 PIO=~/.platformio/penv/bin/pio; PY=~/.platformio/penv/bin/python; ESPT=~/.platformio/packages/tool-esptoolpy/esptool.py
 PORT=/dev/esp32; MODE=${1:-build}
 say(){ printf '\n\033[1;36m== %s\033[0m\n' "$*"; }
 die(){ printf '\n\033[1;31m❌ %s\033[0m\n' "$*"; exit 1; }
 
-ver=$(grep -o 'LOTUS_FW_VERSION "[^"]*"' $FW/src/firmware.ino | cut -d'"' -f2)
+ver=$(grep -oE '(LOTUS|LRB)_FW_VERSION +"[^"]*"' $VERF | cut -d'"' -f2)
 say "เฟิร์มแวร์ $ver · git $(git -C $REPO rev-parse --short HEAD)$(git -C $REPO diff --quiet || echo ' (มีไฟล์แก้ยังไม่ commit)')"
 
 if [ "$MODE" = build ] || [ "$MODE" = upload ]; then
-  say "1) build (pio run -e myrobot)"
+  say "1) build (pio run -e $ENVN) · $FW"
   echo "(ใช้เวลา ~1–2 นาที · ถ้าเปิด VS Code Remote อยู่อาจถึง ~2.5 นาที · log เต็ม: /tmp/pio_build.log)"
-  ( cd $FW && $PIO run -e myrobot ) 2>&1 | tee /tmp/pio_build.log | grep --line-buffered -E "Compiling|Linking|Building|RAM:|Flash:|error:|Error|SUCCESS|FAILED" | sed -u 's/^/   /'
+  ( cd $FW && $PIO run -e $ENVN ) 2>&1 | tee /tmp/pio_build.log | grep --line-buffered -E "Compiling|Linking|Building|RAM:|Flash:|error:|Error|SUCCESS|FAILED" | sed -u 's/^/   /'
   RC=${PIPESTATUS[0]}
   [ $RC -eq 0 ] && [ -f $BIN ] || die "build ไม่สำเร็จ — ดู error ด้านบน หรือ /tmp/pio_build.log"
   [ "$MODE" = build ] && { say "✅ build เสร็จ: $BIN ($(stat -c %s $BIN) bytes) — ยังไม่ได้เขียนลงบอร์ด"; exit 0; }
@@ -26,7 +30,7 @@ fi
 if [ "$MODE" = upload ]; then
   [ -e $PORT ] || die "ไม่พบ $PORT — เสียบสาย ESP32 / ตรวจ udev (บทที่ 11.4)"
   say "2) สำรองไฟล์ที่จะเขียน → ~/fw_backup/"
-  mkdir -p ~/fw_backup; B=~/fw_backup/firmware_${ver}_$(date +%Y%m%d_%H%M%S).bin; cp $BIN "$B"; echo "$B"
+  mkdir -p ~/fw_backup; B=~/fw_backup/firmware_${ENVN}_${ver}_$(date +%Y%m%d_%H%M%S).bin; cp $BIN "$B"; echo "$B"
   if pgrep -f "[m]icro_ros_agent" >/dev/null; then
     say "3) ปิด agent (ต้องว่างพอร์ต) — หุ่นต้องจอดนิ่ง"
     read -r -p "agent กำลังทำงาน ปิดแล้ว flash ต่อ? พิมพ์ y: " a; [ "$a" = y ] || die "ยกเลิก"
