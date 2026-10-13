@@ -94,7 +94,7 @@ static inline void set_microros_net_transports(IPAddress agent_ip, uint16_t agen
 #ifndef NODE_NAME
 #define NODE_NAME "linorobot_base_node"
 #endif
-#define LOTUS_FW_VERSION "v2026.10.12d"   // แสดงบน OLED ตอนบูต — เปลี่ยนทุกครั้งที่ flash เวอร์ชันใหม่
+#define LOTUS_FW_VERSION "v2026.10.13a"   // แสดงบน OLED ตอนบูต — เปลี่ยนทุกครั้งที่ flash เวอร์ชันใหม่
 #ifndef TOPIC_PREFIX
 #define TOPIC_PREFIX
 #endif
@@ -211,6 +211,11 @@ Servo servo1, servo2, servo3;
 #include <Preferences.h>
 static Preferences netPrefs;
 static String net_host, net_ssid, net_pass, net_ip, net_user, net_spass;   // user/sshpass = บัญชี SSH ของ Jetson (v2026.10.12d)
+// v2026.10.13a: แสดงข้อมูลเครือข่าย "เฉพาะที่ได้รับจริงทาง USB" — ไม่แสดงค่าเก่าจาก NVS (รู้ทันทีว่าสาย USB/Jetson ใช้ได้)
+static unsigned long net_rx_ms = 0;                 // เวลาที่ได้รับบรรทัด NET ล่าสุด · 0 = ยังไม่ได้รับเลยตั้งแต่บูต
+static const unsigned long NET_FRESH_MS = 10000;    // ได้รับภายใน 10 วิ = live (Jetson ส่งทุก 3 วิ)
+static bool netFresh() { return net_rx_ms != 0 && millis() - net_rx_ms < NET_FRESH_MS; }
+static bool netSeen()  { return net_rx_ms != 0; }   // ได้รับอย่างน้อย 1 ครั้งตั้งแต่บูต (ใช้กับจอสถานะ ROS2)
 
 static void netLoad() {
     netPrefs.begin("lotusnet", true);
@@ -234,6 +239,7 @@ static bool netParse(const String &line) {
     if (n < 7) { fld[5] = net_user; fld[6] = net_spass; }   // Jetson รุ่นเก่าส่ง 5 ช่อง — คงค่าเดิม
     fld[6].trim();
     if (fld[4].length() < 7 || fld[4].length() > 15) return false;   // IPv4 เท่านั้น
+    net_rx_ms = millis();                              // ได้รับข้อมูลจริงทาง USB (v2026.10.13a)
     if (fld[1] == net_host && fld[2] == net_ssid && fld[3] == net_pass && fld[4] == net_ip
         && fld[5] == net_user && fld[6] == net_spass) return true;
     net_host = fld[1]; net_ssid = fld[2]; net_pass = fld[3]; net_ip = fld[4];
@@ -440,7 +446,7 @@ void setup()
         display.clear();
         display.setFont(ArialMT_Plain_10);
         display.setTextAlignment(TEXT_ALIGN_CENTER);
-        display.drawString(64, 0,  net_ip.length() ? ("IP " + net_ip) : String("LotusRosDev Shield"));
+        display.drawString(64, 0,  netSeen() ? ("IP " + net_ip) : String("IP: No data"));
         display.drawLine(0, 11, 127, 11);
         display.drawString(64, 18, "Hold BTN = CALIB");
         display.drawString(64, 32, "Release  = ROS2");
@@ -735,7 +741,7 @@ void updateDisplay()
 #ifdef USE_WIFI_TRANSPORT
     display.drawString(0, 0, "IP: " + String(WiFi.localIP().toString().c_str()));
 #else
-    display.drawString(0, 0, "IP:" + (net_ip.length() ? net_ip : String("-")));
+    display.drawString(0, 0, "IP:" + (netSeen() ? net_ip : String("No data")));
 #endif
     if (state == AGENT_CONNECTED) {
         display.drawString(0, 13, "ROS2: OK");
@@ -768,7 +774,7 @@ void updateDisplaySensors()
     String ip_short = WiFi.localIP().toString();
     int last_dot = ip_short.lastIndexOf('.');
 #else
-    String ip_short = net_ip.length() ? net_ip : String("-");   // IP ของ Jetson ที่ได้รับทาง serial
+    String ip_short = netSeen() ? net_ip : String("No data");   // IP ของ Jetson ที่ได้รับทาง serial ตั้งแต่บูตรอบนี้
     int last_dot = -1;                                            // แสดงเต็ม
 #endif
     String status_str = (state == AGENT_CONNECTED) ? "OK" : "--";

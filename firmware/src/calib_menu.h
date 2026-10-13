@@ -608,22 +608,23 @@ static void calib_runCountTicks() {
 // ════════════════════════════════════════════════════════════════
 //  MENU 8 — Network info (SSID / รหัส / IP ของ Jetson)  — เพิ่ม v2026.10.12c
 //  ข้อมูลมาจาก service lotus-netinfo บน Jetson (ส่งทุก 3 วิ) · หมุน POT = เลื่อนข้อความยาว
+//  v2026.10.13a: แสดงเฉพาะเมื่อได้รับทาง USB ภายใน 10 วิ ไม่งั้นขึ้น "No data"
 // ════════════════════════════════════════════════════════════════
 static void calib_runNetInfo() {
     while (digitalRead(BUTTON_PIN) == LOW) delay(10);
     delay(150);
     calib_btnResetEdge();
-    unsigned long lastRx = 0;
     while (true) {
-        if (netPollSerial(true)) { lastRx = millis(); calib_beepShort(); }
+        bool wasLive = netFresh();
+        if (netPollSerial(true) && !wasLive) calib_beepShort();   // บี๊บครั้งเดียวตอนเริ่มได้รับ (v2026.10.13a)
         int maxLen = max(net_ssid.length(), net_pass.length());
         int off = (maxLen > 16) ? calib_potMap(maxLen - 15) : 0;
         display.clear();
         calib_oledHeader(net_host.length() ? net_host.c_str() : "NETWORK");
-        if (net_ip.length() == 0) {
-            calib_oledLine(0, "No data from Jetson");
-            calib_oledLine(1, "wait 3s / check");
-            calib_oledLine(2, "lotus-netinfo svc");
+        if (!netFresh()) {                       // ไม่ได้รับทาง USB ใน 10 วิ → ไม่แสดงค่าเก่า (v2026.10.13a)
+            calib_oledLine(0, "No data");
+            calib_oledLine(1, "check USB cable /");
+            calib_oledLine(2, "Jetson lotus-netinfo");
         } else {
             String a = "SSID:" + net_ssid.substring(min((int)net_ssid.length(), off));
             String b = "PW:"   + net_pass.substring(min((int)net_pass.length(), off));
@@ -632,7 +633,7 @@ static void calib_runNetInfo() {
             calib_oledLine(1, b.substring(0, 21).c_str());
             calib_oledLine(2, c.c_str());
         }
-        calib_oledLine(3, lastRx ? "live  BTN=menu" : "saved BTN=menu");
+        calib_oledLine(3, netFresh() ? "live  BTN=menu" : "No data BTN=menu");
         display.display();
         if (calib_btnPressed()) break;
         delay(80);
@@ -647,14 +648,18 @@ static void calib_runSshInfo() {
     while (digitalRead(BUTTON_PIN) == LOW) delay(10);
     delay(150);
     calib_btnResetEdge();
-    unsigned long lastRx = 0;
     while (true) {
-        if (netPollSerial(true)) { lastRx = millis(); calib_beepShort(); }
+        bool wasLive = netFresh();
+        if (netPollSerial(true) && !wasLive) calib_beepShort();   // บี๊บครั้งเดียวตอนเริ่มได้รับ (v2026.10.13a)
         String cmd = "ssh " + net_user + "@" + net_ip;
         int off = (cmd.length() > 21) ? calib_potMap(cmd.length() - 20) : 0;
         display.clear();
         calib_oledHeader("SSH LOGIN");
-        if (net_user.length() == 0 || net_ip.length() == 0) {
+        if (!netFresh()) {                       // ไม่ได้รับทาง USB ใน 10 วิ (v2026.10.13a)
+            calib_oledLine(0, "No data");
+            calib_oledLine(1, "check USB cable /");
+            calib_oledLine(2, "Jetson lotus-netinfo");
+        } else if (net_user.length() == 0 || net_ip.length() == 0) {
             calib_oledLine(0, "No login from Jetson");
             calib_oledLine(1, "set /etc/lotusbot/");
             calib_oledLine(2, "ssh_login.conf");
@@ -665,7 +670,7 @@ static void calib_runSshInfo() {
             calib_oledLine(1, u.substring(0, 21).c_str());
             calib_oledLine(2, p.substring(0, 21).c_str());
         }
-        calib_oledLine(3, lastRx ? "live  BTN=menu" : "saved BTN=menu");
+        calib_oledLine(3, netFresh() ? "live  BTN=menu" : "No data BTN=menu");
         display.display();
         if (calib_btnPressed()) break;
         delay(80);
