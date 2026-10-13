@@ -54,13 +54,42 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
     <button id="bDisc">ตัดการเชื่อมต่อ (กลับโหมด ROS2)</button>
     <div id="st">กำลังโหลด…</div>
   </div>
-  <div class="nav">เมนู: <a href="#m1">1 มอเตอร์</a><a href="#m23">2–3 CPR อัตโนมัติ</a><a href="#m4">4 Servo</a><a href="#m5">5 สถานะสด</a><a href="#m6">6 LED/เสียง</a><a href="#m7">7 นับ tick</a><a href="#m89">8–9 เครือข่าย</a><a href="#m10">10 จูน PID</a><a href="#guide">📖 อ่านกราฟ PID</a><a href="#cfgp">⚙️ ค่าหุ่น + อัปโหลด</a></div>
+  <div class="nav">ไปที่เมนู (เรียงเหมือนจอ OLED): <a href="#m1">1 มอเตอร์</a><a href="#m23">2–3 CPR อัตโนมัติ</a><a href="#m4">4 Servo</a><a href="#m5">5 สถานะสด</a><a href="#m6">6 LED/เสียง</a><a href="#m7">7 นับ tick</a><a href="#m89">8–9 เครือข่าย</a><a href="#m10">10 จูน PID</a><a href="#guide">📖 อ่านกราฟ PID</a><a href="#cfgp">⚙️ ค่าหุ่น + อัปโหลด</a></div>
   <label class="safe"><input type="checkbox" id="safe"> ล้อลอยจากพื้นแล้ว และมีคนเฝ้าหุ่น (ต้องติ๊กก่อนหมุนมอเตอร์)</label>
   <p class="dim">ใช้สาย USB เดียวกับ micro-ROS — ปิด agent/ภารกิจก่อน (<code>bash ~/stop.sh all</code>) · ปุ่ม BTN บนบอร์ด = หยุดทุกอย่าง · มอเตอร์หยุดเองถ้าหน้านี้เงียบเกิน 0.3 วินาที</p>
 </div>
 
+<div class="card" id="m1">
+  <h2>1 · ⚙️ หมุนมอเตอร์ <small>(Spin motors · กดค้าง)</small></h2>
+  <div class="row">PWM <input type="range" id="pwm" min="150" max="1023" step="1" value="400" style="flex:1"> <b id="pwmV" class="num">400</b></div>
+  <div class="pad">
+    <span></span><button data-m="1,1">▲</button><span></span>
+    <button data-m="0,1" title="ล้อขวาอย่างเดียว">◀</button><button class="red" id="bStop">■</button><button data-m="1,0" title="ล้อซ้ายอย่างเดียว">▶</button>
+    <span></span><button data-m="-1,-1">▼</button><span></span>
+  </div>
+  <p class="dim">▲ สองล้อเดินหน้า · ◀ ล้อขวาอย่างเดียว · ▶ ล้อซ้ายอย่างเดียว · ถ้าล้อหมุนกลับทิศ แก้ <code>MOTOR1_INV / MOTOR2_INV</code></p>
+</div>
+
+<div class="card" id="m23">
+  <h2>2–3 · 🔄 CPR อัตโนมัติ <small>(Sample CPR / CPR x5 · หมุนเต็มกำลัง)</small></h2>
+  <div class="row">หมุนล้อละ <input type="number" id="cprSec" value="20" min="5" max="30"> วินาที · <select id="cprRounds"><option value="1">1 รอบ (เมนู 2)</option><option value="5">5 รอบ สลับล้อ (เมนู 3)</option></select></div>
+  <div class="row"><button class="pri" id="bCpr">▶ เริ่มวัด</button><button class="red" id="bCprStop">■ หยุด</button></div>
+  <div class="prog"><i id="cprProg" style="width:0"></i></div>
+  <table id="cprT"><tr><th>รอบ</th><th>ซ้าย tick</th><th>CPR ประมาณ</th><th>rpm จริง</th><th>ขวา tick</th><th>CPR ประมาณ</th><th>rpm จริง</th></tr></table>
+  <p class="dim">CPR ที่ได้เป็น<b>ค่าประมาณ</b> (คิดจาก rpm ตามสเปก × แรงดัน) — ค่าที่แม่นใช้เมนู 7 · ที่มีประโยชน์กว่าคือ <b>rpm จริงตอน PWM เต็ม</b> เทียบกับ <code>MOTOR_MAX_RPM</code></p>
+</div>
+
+<div class="card" id="m4">
+  <h2>4 · 🦾 Servo <small>(Servo check)</small></h2>
+  <label class="safe" style="border-color:var(--stop)"><input type="checkbox" id="srvSafe"> แขนกลอยู่ในท่าปลอดภัย (ยังไม่ได้คาลิเบรต — ขยับทีละน้อย)</label>
+  <div class="row">S1 หนีบ <input type="range" id="s1" min="0" max="180" value="90" style="flex:1"> <b id="s1v">90</b></div>
+  <div class="row">S2 ยก <input type="range" id="s2" min="0" max="180" value="90" style="flex:1"> <b id="s2v">90</b></div>
+  <div class="row">S3 <input type="range" id="s3" min="0" max="180" value="90" style="flex:1"> <b id="s3v">90</b></div>
+  <div class="row"><button id="bSrvSend">ส่งมุม</button><button id="bSrvOff">ปล่อย servo (detach)</button></div>
+</div>
+
 <div class="card" id="m5">
-  <h2>📟 สถานะสด <small>(เมนู 5)</small></h2>
+  <h2>5 · 📟 สถานะสด <small>(Sensor check)</small></h2>
   <div class="kv">
     <span>POT (GPIO35)</span><div class="bar"><i id="vPotB"></i></div><span class="num" id="vPot">–</span>
     <span>IR ซ้าย (39)</span><div class="bar"><i id="vIrlB"></i></div><span class="num" id="vIrl">–</span>
@@ -72,51 +101,22 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
   </div>
 </div>
 
-<div class="card" id="m1">
-  <h2>⚙️ มอเตอร์ <small>(เมนู 1 · กดค้าง)</small></h2>
-  <div class="row">PWM <input type="range" id="pwm" min="150" max="1023" step="1" value="400" style="flex:1"> <b id="pwmV" class="num">400</b></div>
-  <div class="pad">
-    <span></span><button data-m="1,1">▲</button><span></span>
-    <button data-m="0,1" title="ล้อขวาอย่างเดียว">◀</button><button class="red" id="bStop">■</button><button data-m="1,0" title="ล้อซ้ายอย่างเดียว">▶</button>
-    <span></span><button data-m="-1,-1">▼</button><span></span>
-  </div>
-  <p class="dim">▲ สองล้อเดินหน้า · ◀ ล้อขวาอย่างเดียว · ▶ ล้อซ้ายอย่างเดียว · ถ้าล้อหมุนกลับทิศ แก้ <code>MOTOR1_INV / MOTOR2_INV</code></p>
+<div class="card" id="m6">
+  <h2>6 · 💡 LED · 🔊 เสียง <small>(LED test)</small></h2>
+  <div class="row"><button id="bLed1">LED ติด</button><button id="bLed0">LED ดับ</button><button id="bBlink">กะพริบ</button> ทุก <input type="number" id="blinkMs" value="500" min="100" max="2000" step="50"> ms</div>
+  <div class="row">ความถี่ <input type="number" id="bz" value="1000" min="20" max="20000"> Hz · <input type="number" id="bzms" value="150" min="1" max="1000"> ms <button id="bBeep">🔊 บี๊บ</button></div>
 </div>
 
 <div class="card" id="m7">
-  <h2>🔢 นับ tick → CPR <small>(เมนู 7)</small></h2>
+  <h2>7 · 🔢 นับ tick → CPR <small>(Count ticks · หมุนล้อด้วยมือ)</small></h2>
   <div class="row"><button id="bZero">ล้างตัวนับ</button> หมุนล้อด้วยมือ <input type="number" id="revs" value="10" min="1" step="1"> รอบ</div>
   <table><tr><th></th><th>tick</th><th>CPR วัดได้</th><th>ในโค้ด</th></tr>
   <tr><td>ซ้าย M1</td><td id="cT1">–</td><td id="cC1">–</td><td>958</td></tr>
   <tr><td>ขวา M2</td><td id="cT2">–</td><td id="cC2">–</td><td>925</td></tr></table>
 </div>
 
-<div class="card" id="m23">
-  <h2>🔄 CPR อัตโนมัติ <small>(เมนู 2–3 · มอเตอร์หมุนเต็มกำลัง)</small></h2>
-  <div class="row">หมุนล้อละ <input type="number" id="cprSec" value="20" min="5" max="30"> วินาที · <select id="cprRounds"><option value="1">1 รอบ (เมนู 2)</option><option value="5">5 รอบ สลับล้อ (เมนู 3)</option></select></div>
-  <div class="row"><button class="pri" id="bCpr">▶ เริ่มวัด</button><button class="red" id="bCprStop">■ หยุด</button></div>
-  <div class="prog"><i id="cprProg" style="width:0"></i></div>
-  <table id="cprT"><tr><th>รอบ</th><th>ซ้าย tick</th><th>CPR ประมาณ</th><th>rpm จริง</th><th>ขวา tick</th><th>CPR ประมาณ</th><th>rpm จริง</th></tr></table>
-  <p class="dim">CPR ที่ได้เป็น<b>ค่าประมาณ</b> (คิดจาก rpm ตามสเปก × แรงดัน) — ค่าที่แม่นใช้เมนู 7 · ที่มีประโยชน์กว่าคือ <b>rpm จริงตอน PWM เต็ม</b> เทียบกับ <code>MOTOR_MAX_RPM</code></p>
-</div>
-
-<div class="card" id="m6">
-  <h2>💡 LED · 🔊 เสียง <small>(เมนู 6)</small></h2>
-  <div class="row"><button id="bLed1">LED ติด</button><button id="bLed0">LED ดับ</button><button id="bBlink">กะพริบ</button> ทุก <input type="number" id="blinkMs" value="500" min="100" max="2000" step="50"> ms</div>
-  <div class="row">ความถี่ <input type="number" id="bz" value="1000" min="20" max="20000"> Hz · <input type="number" id="bzms" value="150" min="1" max="1000"> ms <button id="bBeep">🔊 บี๊บ</button></div>
-</div>
-
-<div class="card" id="m4">
-  <h2>🦾 Servo <small>(เมนู 4)</small></h2>
-  <label class="safe" style="border-color:var(--stop)"><input type="checkbox" id="srvSafe"> แขนกลอยู่ในท่าปลอดภัย (ยังไม่ได้คาลิเบรต — ขยับทีละน้อย)</label>
-  <div class="row">S1 หนีบ <input type="range" id="s1" min="0" max="180" value="90" style="flex:1"> <b id="s1v">90</b></div>
-  <div class="row">S2 ยก <input type="range" id="s2" min="0" max="180" value="90" style="flex:1"> <b id="s2v">90</b></div>
-  <div class="row">S3 <input type="range" id="s3" min="0" max="180" value="90" style="flex:1"> <b id="s3v">90</b></div>
-  <div class="row"><button id="bSrvSend">ส่งมุม</button><button id="bSrvOff">ปล่อย servo (detach)</button></div>
-</div>
-
 <div class="card" id="m89">
-  <h2>📶 เครือข่าย <small>(เมนู 8–9 · ที่บอร์ดได้รับจาก Jetson)</small></h2>
+  <h2>8–9 · 📶 เครือข่าย / SSH <small>(ที่บอร์ดได้รับจาก Jetson)</small></h2>
   <div class="kv" style="grid-template-columns:90px 1fr">
     <span>host</span><span id="nH">–</span><span>SSID</span><span id="nS">–</span>
     <span>IP</span><span id="nI">–</span><span>SSH</span><span id="nU">–</span><span>สถานะ</span><span id="nL">–</span>
@@ -125,7 +125,7 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
 </div>
 
 <div class="card wide" id="m10">
-  <h2>📈 จูน PID ความเร็วล้อ <small>(เมนู 10 · ทดสอบแบบขั้นบันได)</small></h2>
+  <h2>10 · 📈 จูน PID ความเร็วล้อ <small>(PID tune · ทดสอบแบบขั้นบันได)</small></h2>
   <div class="row" style="align-items:flex-start;gap:20px">
     <table>
       <tr><th></th><th>Kp</th><th>Ki</th><th>Kd</th></tr>
@@ -143,7 +143,7 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
       <div class="row"><button class="pri" id="bStep">▶ ทดสอบ step</button><label><input type="checkbox" id="keep" checked> เก็บกราฟรอบก่อนไว้เทียบ</label> <button id="bClr">ล้างกราฟ</button></div>
     </div>
   </div>
-  <div class="leg dim">rpm (เฉลี่ย 100 ms):<span style="background:var(--tg)"></span>เป้า<span style="background:var(--L)"></span>ซ้าย<span style="background:var(--R)"></span>ขวา · เส้นจาง = รอบก่อน</div>
+  <div class="leg dim">rpm (เฉลี่ย 100 ms):<span style="background:repeating-linear-gradient(90deg,var(--tg) 0 6px,transparent 6px 10px)"></span>เป้า (เส้นประ ทรงขั้นบันได)<span style="background:var(--L)"></span>ซ้าย<span style="background:var(--R)"></span>ขวา · เส้นจาง = รอบก่อน</div>
   <canvas id="cv" width="1060" height="260"></canvas>
   <div class="leg dim">PWM ที่ PID สั่ง (0–1023)</div>
   <canvas id="cvp" width="1060" height="140" style="height:140px"></canvas>
