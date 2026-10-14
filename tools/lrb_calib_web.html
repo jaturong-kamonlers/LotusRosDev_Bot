@@ -49,21 +49,74 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
 .card.active .badge{display:inline-block}
 #busybar{position:sticky;top:0;z-index:20;display:none;align-items:center;gap:10px;margin:-12px -12px 10px;padding:8px 14px;background:var(--ok);color:#fff;font-weight:600}
 #busybar.on{display:flex}#busybar a{color:#fff}#busybar button{background:#fff;color:var(--stop);font-weight:700}
+/* แถบเมนูซ้าย (แบบเดียวกับคู่มือ) */
+body{padding:0}
+.app{display:grid;grid-template-columns:250px 1fr;min-height:100vh}
+#side{position:sticky;top:0;height:100vh;overflow:auto;background:#0f1b33;color:#dbe4f3;padding:14px 10px 18px;font-size:14px}
+#side .brand{display:flex;gap:10px;align-items:center;padding:2px 6px 10px}
+#side .brand b{font-size:16px;color:#fff;display:block}#side .brand small{color:#8fa0bf}
+#side .logo{width:38px;height:38px;border-radius:10px;background:#2563eb;display:grid;place-items:center;font-size:20px}
+#side .conn{margin:0 4px 10px;padding:7px 10px;border-radius:10px;background:#16264a;font-size:13px;display:flex;gap:8px;align-items:center}
+#side .conn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#side .conn i{width:10px;height:10px;border-radius:50%;background:#64748b;flex:none}
+body.isconn #side .conn i{background:#22c55e}body.isros #side .conn i{background:#f59e0b}
+#side .grp{margin:12px 6px 4px;font-size:11px;letter-spacing:.06em;color:#8fa0bf;font-weight:700;display:flex;gap:6px;align-items:center}
+#side .grp span{background:#2563eb;color:#fff;border-radius:6px;padding:0 6px}
+#side a{display:flex;gap:9px;align-items:center;padding:6px 8px;border-radius:9px;color:#dbe4f3;text-decoration:none;line-height:1.3}
+#side a:hover{background:#1b2d55}
+#side a.cur{background:#1e3a6e;color:#fff;box-shadow:inset 3px 0 0 #60a5fa}
+#side a .n{width:30px;flex:none;text-align:center;font-size:12px;color:#8fa0bf;font-variant-numeric:tabular-nums}
+#side a .dot{margin-left:auto;width:9px;height:9px;border-radius:50%;background:#22c55e;display:none;flex:none;animation:pulse 1.2s ease-in-out infinite}
+#side a.run .dot{display:block}#side a.run{color:#86efac}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+body:not(.isconn) #side a.needc{opacity:.55}
+#side .foot{margin:14px 8px 0;font-size:12px;color:#8fa0bf}
+main{padding:12px;min-width:0}
+#busybar{margin:-12px -12px 10px}
+.card{scroll-margin-top:52px}
+@media (max-width:900px){.app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr;align-content:start}#side{min-width:0;align-items:center}
+ #side{position:sticky;top:0;z-index:30;height:auto;display:flex;gap:4px;overflow-x:auto;white-space:nowrap;padding:6px}
+ #side .brand,#side .grp,#side .foot,#side .conn{display:none}
+ #side a{flex:none;padding:5px 9px}#side a .n{width:auto}
+ #busybar{top:44px}
+ .wrap{grid-template-columns:minmax(0,1fr)}.card{min-width:0;overflow-x:auto}#st{max-width:100%;overflow-wrap:anywhere}}
 #log{font:12px ui-monospace,monospace;max-height:140px;overflow:auto;white-space:pre-wrap;color:var(--dim)}
 </style>
 </head>
 <body>
+<div class="app">
+<nav id="side">
+  <div class="brand"><div class="logo">🔧</div><div><b>LotusRosBot</b><small>คาลิเบรต · จูน PID · ทดสอบ</small></div></div>
+  <div class="conn"><i></i><span id="sideSt">กำลังโหลด…</span></div>
+  <a href="#top"><span class="n">🔌</span>เชื่อมต่อ + ความปลอดภัย<b class="dot"></b></a>
+  <div class="grp"><span>OLED</span>เมนูบนบอร์ด (เรียงตามจอ)</div>
+  <a href="#m1" class="needc"><span class="n">1</span>หมุนมอเตอร์<b class="dot"></b></a>
+  <a href="#m23" class="needc"><span class="n">2–3</span>CPR อัตโนมัติ<b class="dot"></b></a>
+  <a href="#m4" class="needc"><span class="n">4</span>Servo<b class="dot"></b></a>
+  <a href="#m5" class="needc"><span class="n">5</span>สถานะสด<b class="dot"></b></a>
+  <a href="#m6" class="needc"><span class="n">6</span>LED · เสียง<b class="dot"></b></a>
+  <a href="#m7" class="needc"><span class="n">7</span>นับ tick → CPR<b class="dot"></b></a>
+  <a href="#m89" class="needc"><span class="n">8–9</span>เครือข่าย / SSH<b class="dot"></b></a>
+  <a href="#m10" class="needc"><span class="n">10</span>จูน PID<b class="dot"></b></a>
+  <div class="grp"><span>ค่า</span>จูน + เฟิร์มแวร์</div>
+  <a href="#guide"><span class="n">📖</span>อ่านกราฟ PID<b class="dot"></b></a>
+  <a href="#cfgp"><span class="n">⚙️</span>ค่าหุ่น + อัปโหลด<b class="dot"></b></a>
+  <div class="grp"><span>ROS2</span>ทดสอบระบบจริง</div>
+  <a href="#tests"><span class="n">🧪</span>ทดสอบ T1–T7<b class="dot"></b></a>
+  <a href="#logc"><span class="n">📝</span>บันทึก</a>
+  <div class="foot"><span id="sideFw"></span><br>คู่มือ: บทที่ 13.8 · 18.7 · 18.13<br>ปุ่ม BTN บนบอร์ด = หยุดทุกอย่าง</div>
+</nav>
+<main>
 <div id="busybar"><span>● กำลังทำงาน:</span><a href="#" id="busyTxt">–</a><button id="busyStop">■ หยุด</button></div>
 <div class="wrap">
 
-<div class="card wide">
+<div class="card wide" id="top">
   <h1>🔧 LotusRosBot — คาลิเบรต + จูน PID <small class="dim" id="fw"></small></h1>
   <div class="row">
     <button class="pri" id="bConn">เชื่อมต่อบอร์ด</button>
     <button id="bDisc">ตัดการเชื่อมต่อ (กลับโหมด ROS2)</button>
     <div id="st">กำลังโหลด…</div>
   </div>
-  <div class="nav">ไปที่เมนู (เรียงเหมือนจอ OLED): <a href="#m1">1 มอเตอร์</a><a href="#m23">2–3 CPR อัตโนมัติ</a><a href="#m4">4 Servo</a><a href="#m5">5 สถานะสด</a><a href="#m6">6 LED/เสียง</a><a href="#m7">7 นับ tick</a><a href="#m89">8–9 เครือข่าย</a><a href="#m10">10 จูน PID</a><a href="#guide">📖 อ่านกราฟ PID</a><a href="#cfgp">⚙️ ค่าหุ่น + อัปโหลด</a><a href="#tests">🧪 ทดสอบ T1–T7</a></div>
   <label class="safe"><input type="checkbox" id="safe"> ล้อลอยจากพื้นแล้ว และมีคนเฝ้าหุ่น (ต้องติ๊กก่อนหมุนมอเตอร์)</label>
   <p class="dim">ใช้สาย USB เดียวกับ micro-ROS — ปิด agent/ภารกิจก่อน (<code>bash ~/stop.sh all</code>) · ปุ่ม BTN บนบอร์ด = หยุดทุกอย่าง · มอเตอร์หยุดเองถ้าหน้านี้เงียบเกิน 0.3 วินาที</p>
 </div>
@@ -231,7 +284,9 @@ pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid v
   <details><summary>ประวัติผลทดสอบ</summary><pre class="box" id="tHist"></pre></details>
 </div>
 
-<div class="card wide"><h2>📝 บันทึก</h2><div id="log"></div></div>
+<div class="card wide" id="logc"><h2>📝 บันทึก</h2><div id="log"></div></div>
+</div>
+</main>
 </div>
 
 <script>
@@ -269,8 +324,8 @@ function poll(){
     if(j.pid){var pj=JSON.stringify(j.pid);if(pj!==lastPid&&!pidDirty){setPid(j.pid);}lastPid=pj;}
     $('log').textContent=(j.log||[]).slice().reverse().join('\n');
     ['bStep','bApply','bSave','bReset','bZero','bLed1','bLed0','bBeep','bSrvSend','bSrvOff'].forEach(function(b){$(b).disabled=!j.connected||j.busy;});
-    $('bConn').disabled=j.connected; $('bDisc').disabled=!j.connected;
-  }).catch(function(){show('bad','⛔ ติดต่อเซิร์ฟเวอร์ไม่ได้ — รัน python3 ~/LotusRosDev_Bot/tools/lrb_calib_web.py');});
+    window.SRVDOWN=false;$('bConn').disabled=j.connected;document.body.classList.toggle('isconn',!!j.connected);document.body.classList.toggle('isros',!j.connected&&!!(j.port_owner&&j.port_owner.indexOf('agent')>=0)); $('bDisc').disabled=!j.connected;
+  }).catch(function(){window.SRVDOWN=true;document.body.classList.remove('isconn','isros');show('bad','⛔ ติดต่อเซิร์ฟเวอร์ไม่ได้ — รัน python3 ~/LotusRosDev_Bot/tools/lrb_calib_web.py');});
 }
 setInterval(poll,500); poll();
 
@@ -347,11 +402,18 @@ function activity(){var a={};
   if(typeof blinkT!=='undefined'&&blinkT)a.m6='LED กะพริบ';
   if(stepping)a.m10='ทดสอบ step PID';
   if(JOBST&&JOBST.running){var c=jobCard(JOBST.name);if(c)a[c]=JOBST.name;}
-  ['m1','m23','m4','m5','m6','m7','m89','m10','guide','cfgp','tests'].forEach(function(k){var e=$(k);if(e)e.classList.toggle('active',!!a[k]);});
+  ['m1','m23','m4','m5','m6','m7','m89','m10','guide','cfgp','tests'].forEach(function(k){var e=$(k);if(e)e.classList.toggle('active',!!a[k]);var l=document.querySelector('#side a[href="#'+k+'"]');if(l)l.classList.toggle('run',!!a[k]);});
+  var sv=$('st');if(sv){var b=document.body.classList,t=window.SRVDOWN?'⛔ ติดต่อเซิร์ฟเวอร์ไม่ได้':b.contains('isconn')?'เชื่อมต่อบอร์ดแล้ว (คาลิเบรต)':b.contains('isros')?'โหมด ROS2 (ทดสอบ T)':'ยังไม่เชื่อมต่อบอร์ด';$('sideSt').textContent=t;$('sideSt').title=sv.textContent;}var fv=$('fw');if(fv)$('sideFw').textContent=fv.textContent;
   var ks=Object.keys(a);$('busybar').classList.toggle('on',ks.length>0);
   if(ks.length){$('busyTxt').textContent=a[ks[0]]+(ks.length>1?' (+'+(ks.length-1)+')':'');$('busyTxt').href='#'+ks[0];}}
 setInterval(function(){fetch('api/job',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){JOBST=j;activity();}).catch(function(){});},1000);
 setInterval(activity,300);
+(function(){var links=[].slice.call(document.querySelectorAll('#side a'));var vis={};
+  if(!('IntersectionObserver' in window))return;
+  var io=new IntersectionObserver(function(es){es.forEach(function(e){vis[e.target.id]=e.isIntersecting?e.intersectionRatio:0;});
+    var best=null,bv=0;links.forEach(function(l){var id=l.getAttribute('href').slice(1);if((vis[id]||0)>bv){bv=vis[id];best=l;}});
+    if(best){links.forEach(function(l){l.classList.toggle('cur',l===best);});if(window.innerWidth<=900)best.scrollIntoView({block:'nearest',inline:'center'});}},{threshold:[0,.15,.3,.6,1],rootMargin:'-50px 0px -40% 0px'});
+  links.forEach(function(l){var e=document.getElementById(l.getAttribute('href').slice(1));if(e)io.observe(e);});})();
 $('busyStop').onclick=function(){motorStop();if(typeof blinkT!=='undefined'&&blinkT){$('bBlink').click();}post('api/job/cancel');cmd('@STOP');};
 
 // ── LED กะพริบ ──
