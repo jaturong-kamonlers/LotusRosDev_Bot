@@ -352,6 +352,7 @@ function needSafe(){if(!$('safe').checked){show('warn','⚠️ ติ๊ก "ล
 function f(v,d){return v==null?'–':(+v).toFixed(d==null?0:d);}
 
 // ── สถานะ ──
+var pollFail=0;
 function poll(){
   fetch('api/state',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){
     S=j; $('fw').textContent=j.fw||'';
@@ -376,8 +377,8 @@ function poll(){
     if(j.pid){var pj=JSON.stringify(j.pid);if(pj!==lastPid&&!pidDirty){setPid(j.pid);}lastPid=pj;}
     $('log').textContent=(j.log||[]).slice().reverse().join('\n');
     ['bStep','bApply','bSave','bReset','bZero','bLed1','bLed0','bBeep','bSrvSend','bSrvOff'].forEach(function(b){$(b).disabled=!j.connected||j.busy;});
-    window.SRVDOWN=false;$('bConn').disabled=j.connected;document.body.classList.toggle('isconn',!!j.connected);document.body.classList.toggle('isros',!j.connected&&!!(j.port_owner&&j.port_owner.indexOf('agent')>=0)); $('bDisc').disabled=!j.connected;
-  }).catch(function(){window.SRVDOWN=true;document.body.classList.remove('isconn','isros');show('bad','⛔ ติดต่อเซิร์ฟเวอร์ไม่ได้ — รัน python3 ~/LotusRosDev_Bot/tools/lrb_calib_web.py');});
+    pollFail=0;window.SRVDOWN=false;$('bConn').disabled=j.connected;document.body.classList.toggle('isconn',!!j.connected);document.body.classList.toggle('isros',!j.connected&&!!(j.port_owner&&j.port_owner.indexOf('agent')>=0)); $('bDisc').disabled=!j.connected;
+  }).catch(function(e){if(e&&!(e instanceof TypeError&&/fetch|network/i.test(e.message)))console.error(e);if(++pollFail<3)return;window.SRVDOWN=true;document.body.classList.remove('isconn','isros');show('bad','⛔ ติดต่อเซิร์ฟเวอร์ไม่ได้ — รัน python3 ~/LotusRosDev_Bot/tools/lrb_calib_web.py');});
 }
 setInterval(poll,500); poll();
 

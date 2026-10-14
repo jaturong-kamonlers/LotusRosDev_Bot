@@ -33,6 +33,22 @@ ALLOWED = re.compile(r'^@(PING|STATUS|MOTOR -?\d{1,4} -?\d{1,4}|STOP|COAST|ENCZE
                      r'PIDSAVE|PIDRESET|NETGET|EXIT)$')
 
 
+
+def agent_running():
+    """มี micro-ROS agent แบบ serial รันอยู่ไหม — อ่าน /proc ตรง ๆ
+    (เดิมใช้ pgrep -f ซึ่งเห็น pgrep อีกตัวที่รันพร้อมกันแล้วนึกว่ามี agent)"""
+    for d in os.listdir('/proc'):
+        if not d.isdigit():
+            continue
+        try:
+            with open(f'/proc/{d}/cmdline', 'rb') as f:
+                argv = f.read().split(b'\0')
+        except OSError:
+            continue
+        if argv and argv[0].endswith(b'micro_ros_agent') and b'serial' in argv[1:]:
+            return True
+    return False
+
 class Link:
     """สายเชื่อม ESP32: เปิดพอร์ต · ส่งคำสั่ง · อ่านคำตอบ (thread อ่านแยก)"""
 
@@ -55,7 +71,7 @@ class Link:
         real = os.path.realpath(PORT_DEV)
         if not os.path.exists(real):
             return f'ไม่พบ {PORT_DEV} — เสียบสาย USB ของ ESP32'
-        if subprocess.run(['pgrep', '-f', 'micro_ros_agent serial'], capture_output=True).returncode == 0:
+        if agent_running():
             return 'micro-ROS agent เปิดอยู่ — ปิดก่อน: bash ~/stop.sh all'
         r = subprocess.run(['fuser', real], capture_output=True, text=True)
         others = [x for x in r.stdout.split() if x.strip().isdigit() and int(x) != os.getpid()]
@@ -563,7 +579,7 @@ def _alive(p):
 
 
 def ros_state():
-    ext = subprocess.run(['pgrep', '-f', 'micro_ros_agent serial'], capture_output=True).returncode == 0
+    ext = agent_running()
     return {'agent': _alive(ROS['agent']) or ext, 'bringup': _alive(ROS['bringup']), 'msg': ROS['msg']}
 
 
