@@ -865,6 +865,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self._reply(400, {'ok': False, 'msg': 'ติ๊กยืนยันพื้นที่ปลอดภัย + มีคนเฝ้าก่อน'})
             ok, msg = job_start(TESTS[tid][0], job_test, tid)
             return self._reply(200, {'ok': ok, 'msg': msg})
+        if path == '/api/stopall':
+            # ปุ่ม "หยุดทุกอย่าง": ยกเลิกงานยาว/ทดสอบ T + ส่ง @STOP ตรงถึงบอร์ดทันที (ไม่รอ lock — หยุด step กลางทางได้)
+            JOB['cancel'] = True
+            sent = False
+            if LINK.state['connected'] and LINK.ser is not None:
+                try:
+                    LINK._send('@STOP'); sent = True
+                except Exception as e:
+                    LINK.log(f'ส่ง @STOP ไม่สำเร็จ: {e}')
+            LINK.log('■ หยุดทุกอย่าง (จากหน้าเว็บ)')
+            return self._reply(200, {'ok': True, 'sent': sent})
         if path == '/api/job/cancel':
             JOB['cancel'] = True
             LINK.command('@STOP')

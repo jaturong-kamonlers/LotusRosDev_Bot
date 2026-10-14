@@ -109,6 +109,19 @@ body.narrowpg .pager{max-width:760px}
 .tile b{display:block}.tile span{font-size:13px;color:var(--dim)}
 .tile.run{border-color:var(--ok);box-shadow:0 0 0 2px rgba(34,197,94,.35)}
 .tgrp{margin:14px 0 2px;font-weight:700;color:var(--dim);font-size:13px}
+.pidgrid{display:grid;grid-template-columns:350px minmax(0,1fr);gap:18px;align-items:start}
+.pidL .row{flex-direction:column;align-items:stretch}.pidL table{width:100%}
+.pidL .row .row{flex-direction:row;flex-wrap:wrap;align-items:center}
+.pidR canvas{display:block}
+@media (max-width:1150px){.pidgrid{grid-template-columns:minmax(0,1fr)}}
+input.warnin{border:2px solid var(--warn);background:rgba(245,158,11,.12)}
+#pidHint{font-size:13px;padding:6px 10px;border-radius:8px;background:var(--btn);margin-top:6px}
+#pidHint.w{background:rgba(245,158,11,.15);color:var(--warn);font-weight:600}
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:6px 0 4px}
+.sum div{padding:10px 12px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
+.sum b{display:block;font-size:12px;color:var(--dim);font-weight:600;margin-bottom:2px}
+.sum .v{font-size:15px;font-variant-numeric:tabular-nums}
+#bStopAll{margin-left:auto;font-weight:700}
 #log{font:12px ui-monospace,monospace;max-height:140px;overflow:auto;white-space:pre-wrap;color:var(--dim)}
 </style>
 </head>
@@ -145,6 +158,7 @@ body.narrowpg .pager{max-width:760px}
     <button class="pri" id="bConn">เชื่อมต่อบอร์ด</button>
     <button id="bDisc">ตัดการเชื่อมต่อ (กลับโหมด ROS2)</button>
     <div id="st">กำลังโหลด…</div>
+    <button class="red" id="bStopAll" title="หยุดมอเตอร์ · หยุดทดสอบ step · ยกเลิกงาน/ทดสอบ T ที่ทำอยู่">■ หยุดทุกอย่าง</button>
   </div>
   <label class="safe"><input type="checkbox" id="safe"> ล้อลอยจากพื้นแล้ว และมีคนเฝ้าหุ่น (ต้องติ๊กก่อนหมุนมอเตอร์)</label>
   <p class="dim">ใช้สาย USB เดียวกับ micro-ROS — ปิด agent/ภารกิจก่อน (<code>bash ~/stop.sh all</code>) · ปุ่ม BTN บนบอร์ด = หยุดทุกอย่าง · มอเตอร์หยุดเองถ้าหน้านี้เงียบเกิน 0.3 วินาที</p>
@@ -152,6 +166,13 @@ body.narrowpg .pager{max-width:760px}
 
 <div class="card pg" id="home">
   <h2>🏠 หน้าแรก <small>เลือกงานที่จะทำ — เลขตรงกับเมนูบนจอ OLED</small></h2>
+  <div class="tgrp">สถานะหุ่นตอนนี้</div>
+  <div class="sum">
+    <div><b>เฟิร์มแวร์ · การเชื่อมต่อ</b><span class="v" id="hFw">–</span></div>
+    <div><b>PID ที่บอร์ดใช้ (Kp / Ki / Kd)</b><span class="v" id="hPid">–</span></div>
+    <div><b>CPR ซ้าย / ขวา · ล้อ</b><span class="v" id="hCpr">–</span></div>
+    <div><b>ทดสอบ T ล่าสุด</b><span class="v" id="hT">–</span></div>
+  </div>
   <div class="tgrp">เมนูบนบอร์ด (ต้องกด “เชื่อมต่อบอร์ด” ก่อน)</div>
   <div class="tiles">
     <a class="tile" href="#m1"><div class="tn">1</div><div><b>หมุนมอเตอร์</b><span>ตรวจทิศล้อ ปุ่มกดค้าง</span></div></a>
@@ -241,6 +262,8 @@ body.narrowpg .pager{max-width:760px}
 
 <div class="card pg" id="m10">
   <h2>10 · 📈 จูน PID ความเร็วล้อ <small>(PID tune · ทดสอบแบบขั้นบันได) · <a href="#guide">📖 อ่านกราฟให้เป็น</a></small><span class="badge">● กำลังทำงาน</span></h2>
+  <div class="pidgrid">
+  <div class="pidL">
   <div class="row" style="align-items:flex-start;gap:20px">
     <table>
       <tr><th></th><th>Kp</th><th>Ki</th><th>Kd</th></tr>
@@ -258,11 +281,7 @@ body.narrowpg .pager{max-width:760px}
       <div class="row"><button class="pri" id="bStep">▶ ทดสอบ step</button><label><input type="checkbox" id="keep" checked> เก็บกราฟรอบก่อนไว้เทียบ</label> <button id="bClr">ล้างกราฟ</button></div>
     </div>
   </div>
-  <div class="leg dim">rpm (เฉลี่ย 100 ms):<span style="background:repeating-linear-gradient(90deg,var(--tg) 0 6px,transparent 6px 10px)"></span>เป้า (เส้นประ ทรงขั้นบันได)<span style="background:var(--L)"></span>ซ้าย<span style="background:var(--R)"></span>ขวา · เส้นจาง = รอบก่อน</div>
-  <canvas id="cv" width="1060" height="260"></canvas>
-  <div class="leg dim">PWM ที่ PID สั่ง (0–1023)</div>
-  <canvas id="cvp" width="1060" height="140" style="height:140px"></canvas>
-  <table id="mt" style="margin-top:8px"><tr><th>รอบ</th><th>ค่า PID (ซ้าย / ขวา)</th><th>ล้อ</th><th>ขึ้นถึง 90%</th><th>พุ่งเกิน</th><th>ขาดจากเป้า</th><th>นิ่งใน ±5%</th><th>แกว่ง</th></tr></table>
+  <div id="pidHint">–</div>
   <details style="margin-top:8px"><summary><b>วิธีจูน (ล้อลอย)</b></summary>
   <ol class="dim">
     <li>ทดสอบค่าเดิมก่อน 1 รอบ (60 rpm ทั้งสองล้อ) ดูกราฟ</li>
@@ -274,6 +293,15 @@ body.narrowpg .pager{max-width:760px}
   </ol></details>
   <p><b>คัดลอกไปใส่ <code>lotusrosbot_config.h</code></b></p>
   <textarea id="defs" rows="7" readonly></textarea>
+  </div>
+  <div class="pidR">
+  <div class="leg dim">rpm (เฉลี่ย 100 ms):<span style="background:repeating-linear-gradient(90deg,var(--tg) 0 6px,transparent 6px 10px)"></span>เป้า (เส้นประ ทรงขั้นบันได)<span style="background:var(--L)"></span>ซ้าย<span style="background:var(--R)"></span>ขวา · เส้นจาง = รอบก่อน</div>
+  <canvas id="cv" width="1060" height="260"></canvas>
+  <div class="leg dim">PWM ที่ PID สั่ง (0–1023)</div>
+  <canvas id="cvp" width="1060" height="140" style="height:140px"></canvas>
+  <table id="mt" style="margin-top:8px"><tr><th>รอบ</th><th>ค่า PID (ซ้าย / ขวา)</th><th>ล้อ</th><th>ขึ้นถึง 90%</th><th>พุ่งเกิน</th><th>ขาดจากเป้า</th><th>นิ่งใน ±5%</th><th>แกว่ง</th></tr></table>
+  </div>
+  </div>
 </div>
 
 <div class="card pg" id="guide">
@@ -405,7 +433,14 @@ $('bSrvSend').onclick=function(){if(!$('srvSafe').checked){show('warn','⚠️ �
 $('bSrvOff').onclick=function(){cmd('@SERVOOFF');};
 
 // ── PID ──
-function setPid(p){S.pid=p;
+var PRANGE={kp:[2,6,'Kp'],ki:[1,3,'Ki'],kd:[0,0.8,'Kd']};
+function pidHint(){var w=[];['L','R'].forEach(function(s){['kp','ki','kd'].forEach(function(k){var e=$(k+s),v=parseFloat(e.value),r=PRANGE[k],bad=!isNaN(v)&&(v<r[0]||v>r[1]);
+    e.classList.toggle('warnin',bad);e.title='ช่วงที่ใช้ได้จริงกับหุ่นนี้ '+r[0]+'–'+r[1];
+    if(bad)w.push(r[2]+(s==='L'?' ซ้าย ':' ขวา ')+v+(v>r[1]?' สูงกว่า ':' ต่ำกว่า ')+'ช่วงที่ใช้ได้ ('+r[0]+'–'+r[1]+')');});});
+  var h=$('pidHint');h.className=w.length?'w':'';
+  h.textContent=w.length?('⚠️ '+w.join(' · ')+' — ยังทดลองได้ แต่ระวัง: Kp สูง = PWM สั่น/ล้อสะดุด · Ki สูง = พุ่งเกินแล้วแกว่ง · Ki ต่ำ = ขึ้นช้า ไม่ถึงเป้า (คู่มือ 18.7)'):'✅ ค่าอยู่ในช่วงที่ทดลองแล้วว่าใช้ได้ (Kp 2–6 · Ki 1–3 · Kd 0–0.8) · ค่าแนะนำ 4 / 2 / 0.1';}
+['L','R'].forEach(function(s){['kp','ki','kd'].forEach(function(k){$(k+s).addEventListener('input',function(){setTimeout(pidHint,0);});});});
+function setPid(p){S.pid=p;setTimeout(pidHint,0);
   ['L','R'].forEach(function(w){['kp','ki','kd'].forEach(function(k,i){$(k+w).value=p[w][i];});});
   $('pSrc').textContent='ในบอร์ดตอนนี้ · '+(p.src==='nvs'?'บันทึกไว้ในบอร์ด (NVS)':'ยังไม่บันทึก (บอร์ดรีบูตแล้วกลับเป็นค่าในโค้ด)');
   var L=p.L,R=p.R;
@@ -461,6 +496,18 @@ function activity(){var a={};
   if(ks.length){$('busyTxt').textContent=a[ks[0]]+(ks.length>1?' (+'+(ks.length-1)+')':'');$('busyTxt').href='#'+ks[0];}}
 setInterval(function(){fetch('api/job',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){JOBST=j;activity();}).catch(function(){});},1000);
 setInterval(activity,300);
+var HCFG=null,HT=null;
+function hLoad(){fetch('api/config',{cache:'no-store'}).then(function(r){return r.json();}).then(function(c){HCFG={};(c.items||[]).forEach(function(it){HCFG[it.name]=it.value;});}).catch(function(){});
+  fetch('api/tests',{cache:'no-store'}).then(function(r){return r.json();}).then(function(j){var last={};(j.history||[]).forEach(function(h){last[h.test]=h;});HT=last;}).catch(function(){});}
+function hRender(){if(!$('hFw'))return;var st=S||{};
+  $('hFw').textContent=(st.fw||'(รู้เมื่อเชื่อมต่อบอร์ด)')+' · '+(st.connected?'🟢 เชื่อมต่อ (คาลิเบรต)':document.body.classList.contains('isros')?'🟠 โหมด ROS2':'⚪ ยังไม่เชื่อมต่อ');
+  var p=st.pid,f=function(a){return a.map(function(v){return +(+v).toFixed(2);}).join(' / ');};
+  if(p&&p.L)$('hPid').textContent=f(p.L)+(f(p.L)!==f(p.R)?' · ขวา '+f(p.R):'')+' ('+(p.src==='nvs'?'บันทึกในบอร์ด':'ค่าในโค้ด')+')';
+  else if(HCFG)$('hPid').textContent=[HCFG.K_P_L,HCFG.K_I_L,HCFG.K_D_L].join(' / ')+' (ค่าในไฟล์ config)';
+  if(HCFG)$('hCpr').textContent=HCFG.COUNTS_PER_REV1+' / '+HCFG.COUNTS_PER_REV2+' · ล้อ '+HCFG.WHEEL_DIAMETER+' m · ระยะล้อ '+HCFG.LR_WHEELS_DISTANCE+' m';
+  if(HT){var ks=['t1','t2','t3','t4','t5'];$('hT').textContent=ks.map(function(k){var h=HT[k];if(!h)return k.toUpperCase()+' –';var ok=h.result&&h.result.ok;return k.toUpperCase()+(ok?' ✅':' ⚠️');}).join(' · ');
+    var lt=ks.map(function(k){return HT[k]&&HT[k].t;}).filter(Boolean).sort().pop();if(lt)$('hT').title='ล่าสุด '+lt;}}
+hLoad();setInterval(hLoad,15000);setInterval(hRender,1000);
 var PAGES=['home','m1','m23','m4','m5','m6','m7','m89','m10','guide','cfgp','tests','logc'];
 var MOTORPG={m1:1,m23:1,m10:1,m7:1,m4:1};
 function pgTitle(id){var l=document.querySelector('#sidenav a[href="#'+id+'"]');if(!l)return id;var n=l.querySelector('.n'),t='';
@@ -473,13 +520,16 @@ function go(){var id=location.hash.slice(1);if(PAGES.indexOf(id)<0)id='home';
   pv.classList.toggle('hide',n<=0);nx.classList.toggle('hide',n>=PAGES.length-1);
   if(n>0){pv.href='#'+PAGES[n-1];pv.lastChild.textContent=pgTitle(PAGES[n-1]);}
   if(n<PAGES.length-1){nx.href='#'+PAGES[n+1];nx.lastChild.textContent=pgTitle(PAGES[n+1]);}
-  window.scrollTo(0,0);setTimeout(function(){window.scrollTo(0,0);},0);}
+  window.scrollTo(0,0);setTimeout(function(){window.scrollTo(0,0);if(id==='m10'&&typeof draw==='function')draw();},0);}
 document.addEventListener('click',function(e){var a=e.target.closest&&e.target.closest('a[href^="#"]');if(!a)return;var id=a.getAttribute('href').slice(1);
   if(PAGES.indexOf(id)<0)return;e.preventDefault();if(location.hash!=='#'+id)history.pushState(null,'','#'+id);go();});
 if('scrollRestoration' in history)history.scrollRestoration='manual';
 window.addEventListener('load',function(){setTimeout(function(){window.scrollTo(0,0);},60);});
-window.addEventListener('popstate',go);window.addEventListener('hashchange',go);go();
-$('busyStop').onclick=function(){motorStop();if(typeof blinkT!=='undefined'&&blinkT){$('bBlink').click();}post('api/job/cancel');cmd('@STOP');};
+window.addEventListener('popstate',go);window.addEventListener('resize',function(){if(typeof draw==='function')draw();});window.addEventListener('hashchange',go);go();
+function stopAll(){if(holdTimer){clearInterval(holdTimer);holdTimer=null;}holdDir=null;
+  if(typeof blinkT!=='undefined'&&blinkT){clearInterval(blinkT);blinkT=null;$('bBlink').textContent='กะพริบ';}
+  post('api/stopall').then(function(j){show('warn','■ สั่งหยุดทุกอย่างแล้ว'+(j.sent?' (ส่ง @STOP ถึงบอร์ด)':''));}).catch(function(){});}
+$('busyStop').onclick=stopAll;$('bStopAll').onclick=stopAll;
 
 // ── LED กะพริบ ──
 var blinkT=null,blinkOn=false;
@@ -565,7 +615,8 @@ document.querySelectorAll('.chk').forEach(function(c){try{c.checked=localStorage
 function css(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
 function draw(){
   [['cv','rpm'],['cvp','pwm']].forEach(function(spec){
-    var c=$(spec[0]),x=c.getContext('2d'),W=c.width,H=c.height,pad=34;
+    var c=$(spec[0]);if(c.clientWidth&&Math.abs(c.width-c.clientWidth)>2)c.width=c.clientWidth;
+    var x=c.getContext('2d'),W=c.width,H=c.height,pad=34;
     x.clearRect(0,0,W,H);
     if(!runs.length)return;
     var tmax=0,ymax=10,ymin=0;
