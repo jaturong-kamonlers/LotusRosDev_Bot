@@ -1,0 +1,26 @@
+{
+ "_comment": "แคตตาล็อกเฟิร์มแวร์ — LotusBlocks (🔧 เฟิร์มแวร์) อ่านไฟล์นี้จาก GitHub · เพิ่มบอร์ดใหม่ = เพิ่มรายการใน boards",
+ "boards": {
+  "lotusrosbot-esp32": {
+   "name": "LotusRosBot — ESP32 DevKit + LotusRosDev Shield",
+   "flash": {
+    "tool": "esptool",
+    "chip": "esp32",
+    "baud": 115200,
+    "offset": "0x10000",
+    "port_hint": "/dev/esp32"
+   },
+   "versions": [
+    {
+     "version": "v2026.10.14e",
+     "file": "lotusrosbot-esp32/v2026.10.14e/firmware.bin",
+     "sha256": "2da3cff2696f05059219f761f5da68f582fe9fce08444ec0f6a3c818e10a3341",
+     "size": 502128,
+     "status": "bench",
+     "status_text": "ทดสอบบนโต๊ะแล้ว · ยังไม่ทดสอบวิ่งพื้น",
+     "notes": "lotusrosbot-esp32/v2026.10.14e/NOTES.md"
+    }
+   ]
+  }
+ }
+}
