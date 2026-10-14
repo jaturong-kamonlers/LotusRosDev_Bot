@@ -42,7 +42,7 @@ textarea{width:100%;font:13px ui-monospace,monospace;border-radius:8px;border:1p
 pre.box{font:12px ui-monospace,monospace;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px;max-height:260px;overflow:auto;white-space:pre-wrap}
 .chg{color:var(--warn);font-weight:600}
 .card{position:relative;transition:background .4s}
-.card.active{border-left:6px solid var(--ok);animation:breathe 2s ease-in-out infinite}
+.card.active{box-shadow:inset 6px 0 0 var(--ok);animation:breathe 2s ease-in-out infinite}
 @keyframes breathe{0%,100%{background:var(--card)}50%{background:rgba(34,197,94,.14)}}
 @media (prefers-reduced-motion:reduce){.card.active{animation:none;background:rgba(34,197,94,.10)}}
 .badge{display:none;margin-left:auto;font-size:12px;font-weight:700;color:#fff;background:var(--ok);border-radius:999px;padding:2px 10px}
@@ -72,13 +72,13 @@ body.isconn #sidenav .conn i{background:#22c55e}body.isros #sidenav .conn i{back
 body:not(.isconn) #sidenav a.needc{opacity:.55}
 #sidenav .foot{margin:14px 8px 0;font-size:12px;color:#8fa0bf}
 main{padding:12px;min-width:0}
-#busybar{margin:-12px -12px 10px}
+#busybar{position:fixed;top:0;left:250px;right:0;margin:0;z-index:40;box-shadow:0 2px 8px rgba(0,0,0,.2)}
 .card{scroll-margin-top:52px}
 @media (max-width:900px){.app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto 1fr;align-content:start}#sidenav{min-width:0;align-items:center}
  #sidenav{position:sticky;top:0;z-index:30;height:auto;display:flex;gap:4px;overflow-x:auto;white-space:nowrap;padding:6px}
  #sidenav .brand,#sidenav .grp,#sidenav .foot,#sidenav .conn{display:none}
  #sidenav a{flex:none;padding:5px 9px}#sidenav a .n{width:auto}
- #busybar{top:44px}
+ #busybar{top:auto;bottom:0;left:0}
  .wrap{grid-template-columns:minmax(0,1fr)}.card{min-width:0;overflow-x:auto}#st{max-width:100%;overflow-wrap:anywhere}}
 /* โทนน้ำตาล (ต่างจากคู่มือ) */
 #sidenav{background:linear-gradient(180deg,#3b2717,#2c1d11)!important;color:#f3e6d6}
@@ -420,7 +420,7 @@ function motorSend(){if(!holdDir||motorBusy)return;var p=+$('pwm').value;motorBu
   post('api/motor',{seq:pressSeq,l:Math.round(holdDir[0]*p),r:Math.round(holdDir[1]*p)}).then(function(j){motorBusy=false;if(!j.ok&&j.msg)show('bad','⛔ '+j.msg);}).catch(function(){motorBusy=false;});}
 function motorStop(){if(holdTimer){clearInterval(holdTimer);holdTimer=null;}if(holdDir){holdDir=null;post('api/motor',{stop:true,seq:pressSeq});}}
 document.querySelectorAll('button[data-m]').forEach(function(b){
-  b.addEventListener('pointerdown',function(e){e.preventDefault();if(!needSafe())return;holdDir=b.dataset.m.split(',').map(Number);pressSeq=Date.now();motorBusy=false;motorSend();holdTimer=setInterval(motorSend,150);});
+  b.addEventListener('pointerdown',function(e){e.preventDefault();if(!needSafe())return;try{b.setPointerCapture(e.pointerId);}catch(_){}holdDir=b.dataset.m.split(',').map(Number);pressSeq=Date.now();motorBusy=false;motorSend();holdTimer=setInterval(motorSend,150);});
   ['pointerup','pointerleave','pointercancel'].forEach(function(ev){b.addEventListener(ev,motorStop);});
 });
 $('bStop').onclick=function(){holdDir=null;if(holdTimer){clearInterval(holdTimer);holdTimer=null;}post('api/motor',{stop:true,seq:Date.now()});};
@@ -488,11 +488,11 @@ function addRow(j){
 var stepping=false, JOBST=null;
 function jobCard(name){if(!name)return null;if(name.indexOf('CPR')>=0)return 'm23';if(name.indexOf('อัปโหลด')>=0||name.indexOf('ย้อน')>=0)return 'cfgp';if(name.indexOf('ROS2')>=0||/^T\d/.test(name))return 'tests';return null;}
 function activity(){var a={};
-  if(holdDir)a.m1='หมุนมอเตอร์ (กดค้าง)';
+  var hold1=!!holdDir;
   if(typeof blinkT!=='undefined'&&blinkT)a.m6='LED กะพริบ';
   if(stepping)a.m10='ทดสอบ step PID';
   if(JOBST&&JOBST.running){var c=jobCard(JOBST.name);if(c)a[c]=JOBST.name;}
-  ['m1','m23','m4','m5','m6','m7','m89','m10','guide','cfgp','tests'].forEach(function(k){var e=$(k);if(e)e.classList.toggle('active',!!a[k]);var l=document.querySelector('#sidenav a[href="#'+k+'"]');if(l)l.classList.toggle('run',!!a[k]);var t=document.querySelector('.tile[href="#'+k+'"]');if(t)t.classList.toggle('run',!!a[k]);});
+  ['m1','m23','m4','m5','m6','m7','m89','m10','guide','cfgp','tests'].forEach(function(k){var e=$(k);var on=!!a[k]||(k==='m1'&&hold1);if(e&&e.classList.contains('active')!==on)e.classList.toggle('active',on);var l=document.querySelector('#sidenav a[href="#'+k+'"]');if(l)l.classList.toggle('run',!!a[k]);var t=document.querySelector('.tile[href="#'+k+'"]');if(t)t.classList.toggle('run',!!a[k]);});
   var sv=$('st');if(sv){var b=document.body.classList,t=window.SRVDOWN?'⛔ ติดต่อเซิร์ฟเวอร์ไม่ได้':b.contains('isconn')?'เชื่อมต่อบอร์ดแล้ว (คาลิเบรต)':b.contains('isros')?'โหมด ROS2 (ทดสอบ T)':'ยังไม่เชื่อมต่อบอร์ด';$('sideSt').textContent=t;$('sideSt').title=sv.textContent;}var fv=$('fw');if(fv)$('sideFw').textContent=fv.textContent;
   var ks=Object.keys(a);$('busybar').classList.toggle('on',ks.length>0);
   if(ks.length){$('busyTxt').textContent=a[ks[0]]+(ks.length>1?' (+'+(ks.length-1)+')':'');$('busyTxt').href='#'+ks[0];}}
