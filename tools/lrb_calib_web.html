@@ -373,7 +373,8 @@ input.warnin{border:2px solid var(--warn);background:rgba(245,158,11,.12)}
 (function(){
 var $=function(i){return document.getElementById(i);};
 var S={connected:false,busy:false,pid:null}, pidShown=false, lastPid='', pidDirty=false, runs=[], runNo=0, holdTimer=null, holdDir=null;
-function show(cls,msg){var e=$('st');e.className=cls;e.textContent=msg;}
+var stickUntil=0;
+function show(cls,msg,stick){if(!stick&&Date.now()<stickUntil)return;var e=$('st');e.className=cls;e.textContent=msg;if(stick)stickUntil=Date.now()+stick;}
 function post(path,body){return fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})}).then(function(r){return r.json();});}
 function cmd(line){return post('api/cmd',{line:line}).then(function(j){if(j.pid&&line.indexOf('@PID')===0)setPid(j.pid);if(!j.ok&&j.msg)show('bad','⛔ '+j.msg);return j;});}
 function needSafe(){if(!$('safe').checked){show('warn','⚠️ ติ๊ก "ล้อลอย + มีคนเฝ้า" ก่อน');return false;}if(!S.connected){show('warn','⚠️ เชื่อมต่อบอร์ดก่อน');return false;}return true;}
@@ -530,7 +531,8 @@ window.addEventListener('load',function(){setTimeout(function(){window.scrollTo(
 window.addEventListener('popstate',go);window.addEventListener('resize',function(){if(typeof draw==='function')draw();});window.addEventListener('hashchange',go);go();
 function stopAll(){if(holdTimer){clearInterval(holdTimer);holdTimer=null;}holdDir=null;
   if(typeof blinkT!=='undefined'&&blinkT){clearInterval(blinkT);blinkT=null;$('bBlink').textContent='กะพริบ';}
-  post('api/stopall').then(function(j){show('warn','■ สั่งหยุดทุกอย่างแล้ว'+(j.sent?' (ส่ง @STOP ถึงบอร์ด)':''));}).catch(function(){});}
+  var b=$('bStopAll');b.textContent='✔ หยุดแล้ว';b.style.background='var(--ok)';setTimeout(function(){b.textContent='■ หยุดทุกอย่าง';b.style.background='';},1500);
+  post('api/stopall').then(function(j){show('warn','■ หยุดทุกอย่างแล้ว — '+(j.sent?'ส่งคำสั่งหยุดถึงบอร์ด · ยกเลิกงานที่ทำอยู่':'ยกเลิกงานที่ทำอยู่ (ยังไม่ได้เชื่อมต่อบอร์ด)'),3000);}).catch(function(){show('bad','⛔ ส่งคำสั่งหยุดไม่ได้ — กดปุ่ม BTN บนบอร์ด',3000);});}
 $('busyStop').onclick=stopAll;$('bStopAll').onclick=stopAll;
 
 // ── LED กะพริบ ──
