@@ -415,13 +415,15 @@ $('bDisc').onclick=function(){post('api/disconnect').then(function(j){show('',j.
 
 // ── มอเตอร์: กดค้าง ส่งซ้ำทุก 100 ms ──
 $('pwm').oninput=function(){$('pwmV').textContent=this.value;};
-function motorSend(){if(!holdDir)return;var p=+$('pwm').value;cmd('@MOTOR '+Math.round(holdDir[0]*p)+' '+Math.round(holdDir[1]*p));}
-function motorStop(){if(holdTimer){clearInterval(holdTimer);holdTimer=null;}if(holdDir){holdDir=null;cmd('@STOP');}}
+var motorBusy=false,pressSeq=Date.now();
+function motorSend(){if(!holdDir||motorBusy)return;var p=+$('pwm').value;motorBusy=true;   // ส่ง "ยังกดอยู่" ทีละคำขอ ไม่ให้คิวพอก
+  post('api/motor',{seq:pressSeq,l:Math.round(holdDir[0]*p),r:Math.round(holdDir[1]*p)}).then(function(j){motorBusy=false;if(!j.ok&&j.msg)show('bad','⛔ '+j.msg);}).catch(function(){motorBusy=false;});}
+function motorStop(){if(holdTimer){clearInterval(holdTimer);holdTimer=null;}if(holdDir){holdDir=null;post('api/motor',{stop:true,seq:pressSeq});}}
 document.querySelectorAll('button[data-m]').forEach(function(b){
-  b.addEventListener('pointerdown',function(e){e.preventDefault();if(!needSafe())return;holdDir=b.dataset.m.split(',').map(Number);motorSend();holdTimer=setInterval(motorSend,100);});
+  b.addEventListener('pointerdown',function(e){e.preventDefault();if(!needSafe())return;holdDir=b.dataset.m.split(',').map(Number);pressSeq=Date.now();motorBusy=false;motorSend();holdTimer=setInterval(motorSend,150);});
   ['pointerup','pointerleave','pointercancel'].forEach(function(ev){b.addEventListener(ev,motorStop);});
 });
-$('bStop').onclick=function(){holdDir=null;if(holdTimer){clearInterval(holdTimer);holdTimer=null;}cmd('@STOP');};
+$('bStop').onclick=function(){holdDir=null;if(holdTimer){clearInterval(holdTimer);holdTimer=null;}post('api/motor',{stop:true,seq:Date.now()});};
 window.addEventListener('blur',motorStop);
 
 $('bZero').onclick=function(){cmd('@COAST').then(function(){return cmd('@ENCZERO');});};

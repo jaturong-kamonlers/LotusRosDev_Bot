@@ -85,7 +85,7 @@ class Link:
         ser = self.ser
         while self.ser is not None:
             try:
-                chunk = ser.read(256)
+                chunk = ser.read(ser.in_waiting or 1)   # ได้ข้อมูลทันที (เดิม read(256) รอครบ timeout 0.1 วิทุกบรรทัด)
             except Exception as e:
                 self.log(f'อ่านพอร์ตไม่ได้: {e}')
                 break
@@ -719,6 +719,26 @@ def list_backups():
 
 
 
+MOTOR = {'l': 0, 'r': 0, 'until': 0.0, 'on': False, 'stopseq': -1}
+
+
+def motor_keeper():
+    """ปุ่มกดค้างในเมนู 1: เบราว์เซอร์บอก "ยังกดอยู่" ทุก ~0.15 วิ (ค้างได้ 0.6 วิ)
+    เซิร์ฟเวอร์ส่ง @MOTOR ให้บอร์ดเองทุก 0.1 วิ — สัญญาณไวไฟสะดุดไม่ทำให้มอเตอร์กระตุก
+    ปล่อยปุ่ม / หน้าเว็บเงียบเกิน 0.6 วิ → @STOP · บอร์ดยังมี watchdog 0.3 วิของตัวเองอีกชั้น"""
+    while True:
+        time.sleep(0.1)
+        if not LINK.state['connected'] or LINK.state['busy']:
+            MOTOR['on'] = False
+            continue
+        if MOTOR['until'] > time.time():
+            LINK.command(f"@MOTOR {MOTOR['l']} {MOTOR['r']}", ('OK', 'ERR'), 0.3)
+            MOTOR['on'] = True
+        elif MOTOR['on']:
+            MOTOR['on'] = False
+            LINK.command('@STOP', ('OK', 'ERR'), 0.3)
+
+
 def poller():
     """อ่านสถานะสดทุก 0.3 วินาที (หยุดระหว่างทดสอบ step)"""
     n = 0
@@ -865,9 +885,34 @@ class Handler(BaseHTTPRequestHandler):
                 return self._reply(400, {'ok': False, 'msg': 'ติ๊กยืนยันพื้นที่ปลอดภัย + มีคนเฝ้าก่อน'})
             ok, msg = job_start(TESTS[tid][0], job_test, tid)
             return self._reply(200, {'ok': ok, 'msg': msg})
+        if path == '/api/motor':
+            # {"l":pwm,"r":pwm} = กดค้าง (ต้องส่งซ้ำ < 0.6 วิ) · {"stop":true} = ปล่อยปุ่ม
+            seq = int(d.get('seq', 0) or 0)
+            if d.get('stop'):
+                MOTOR['until'] = 0.0; MOTOR['stopseq'] = max(MOTOR['stopseq'], seq)
+                if LINK.state['connected'] and not LINK.state['busy']:
+                    LINK.command('@STOP', ('OK', 'ERR'), 0.3)
+                MOTOR['on'] = False
+                return self._reply(200, {'ok': True})
+            if not LINK.state['connected']:
+                return self._reply(200, {'ok': False, 'msg': 'ยังไม่เชื่อมต่อ'})
+            if LINK.state['busy']:
+                return self._reply(409, {'ok': False, 'msg': 'กำลังทดสอบ step อยู่'})
+            try:
+                l = max(-1023, min(1023, int(d.get('l', 0)))); r = max(-1023, min(1023, int(d.get('r', 0))))
+            except (TypeError, ValueError):
+                return self._reply(400, {'ok': False, 'msg': 'ค่า PWM ไม่ถูกต้อง'})
+            if seq <= MOTOR['stopseq']:   # คำขอ "ยังกดอยู่" ที่มาถึงหลังปล่อยปุ่มแล้ว → ไม่สนใจ
+                return self._reply(200, {'ok': True, 'ignored': True})
+            MOTOR['lastseq'] = max(MOTOR.get('lastseq', -1), seq)
+            first = MOTOR['until'] <= time.time()
+            MOTOR.update(l=l, r=r, until=time.time() + 0.6)
+            if first:   # กดครั้งแรก: ส่งทันที ไม่รอรอบ 0.1 วิ
+                LINK.command(f'@MOTOR {l} {r}', ('OK', 'ERR'), 0.3); MOTOR['on'] = True
+            return self._reply(200, {'ok': True})
         if path == '/api/stopall':
             # ปุ่ม "หยุดทุกอย่าง": ยกเลิกงานยาว/ทดสอบ T + ส่ง @STOP ตรงถึงบอร์ดทันที (ไม่รอ lock — หยุด step กลางทางได้)
-            JOB['cancel'] = True
+            JOB['cancel'] = True; MOTOR['until'] = 0.0; MOTOR['stopseq'] = max(MOTOR['stopseq'], MOTOR.get('lastseq', -1))
             sent = False
             if LINK.state['connected'] and LINK.ser is not None:
                 try:
@@ -900,6 +945,7 @@ def _stop(*_):
 def main():
     signal.signal(signal.SIGTERM, _stop)     # kill / systemctl stop → ตัดการเชื่อมต่อให้บอร์ดกลับโหมด ROS2
     threading.Thread(target=poller, daemon=True).start()
+    threading.Thread(target=motor_keeper, daemon=True).start()
     srv = ThreadingHTTPServer(('0.0.0.0', HTTP_PORT), Handler)
     print(f'🔧 LotusRosBot calib web: http://nano.local:{HTTP_PORT}  (หรือ http://<IP ของ Jetson>:{HTTP_PORT})')
     print('   ปิดด้วย Ctrl+C (บอร์ดจะรีบูตเข้าโหมด ROS2 ให้เอง)')
