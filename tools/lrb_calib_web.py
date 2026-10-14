@@ -739,6 +739,96 @@ def motor_keeper():
             LINK.command('@STOP', ('OK', 'ERR'), 0.3)
 
 
+# ── แขนกล: ชุดท่าทาง (การ์ด 4) ───────────────────────────────
+ARM_FILE = os.path.join(HERE, 'lrb_arm_poses.json')          # ไฟล์ของหน้าเว็บเอง (ไม่แตะไฟล์ภารกิจ)
+ARM_PRESETS = os.path.expanduser('~/servo_presets.json')     # อ่านอย่างเดียว (ปุ่มนำเข้า)
+ARM = {'cur': None, 'running': False, 'idx': -1, 'loop': 0, 'loops': 0, 'cancel': False, 'msg': ''}
+
+
+def arm_send(a):
+    a = [max(0, min(180, int(round(x)))) for x in a]
+    r = LINK.command(f'@SERVO {a[0]} {a[1]} {a[2]}', ('OK', 'ERR'), 0.5)
+    if r and r.startswith('OK'):
+        ARM['cur'] = [float(x) for x in a]
+        return True
+    return False
+
+
+def arm_move(target, move_ms, mode):
+    """กวาดจากมุมปัจจุบันไปเป้า · together = 3 ตัวพร้อมกัน · seq = S1 → S2 → S3 ทีละตัว (แบบ servo_seq.py)
+    ยังไม่รู้มุมปัจจุบัน (เพิ่งเชื่อมต่อ) → กระโดดไปเป้าทันที"""
+    target = [max(0.0, min(180.0, float(x))) for x in target]
+    if ARM['cur'] is None or move_ms <= 0:
+        return arm_send(target)
+    groups = [[0], [1], [2]] if mode == 'seq' else [[0, 1, 2]]
+    for g in groups:
+        start = list(ARM['cur'])
+        if all(abs(start[i] - target[i]) < 0.5 for i in g):
+            continue
+        t0 = time.time()
+        while True:
+            if ARM['cancel'] or not LINK.state['connected']:
+                return False
+            k = min(1.0, (time.time() - t0) * 1000.0 / move_ms)
+            a = list(ARM['cur'])
+            for i in g:
+                a[i] = start[i] + (target[i] - start[i]) * k
+            if not arm_send(a):
+                return False
+            if k >= 1.0:
+                break
+            time.sleep(0.03)
+    return True
+
+
+def arm_run(poses, mode, loops):
+    ARM.update(running=True, cancel=False, idx=-1, loop=0, loops=loops, msg='')
+    ok = True
+    try:
+        for lp in range(loops):
+            ARM['loop'] = lp + 1
+            for i, p in enumerate(poses):
+                ARM['idx'] = i
+                if not arm_move(p['a'], float(p.get('move_ms', 500)), mode):
+                    ok = False; break
+                end = time.time() + float(p.get('hold_ms', 0)) / 1000.0
+                while time.time() < end and not ARM['cancel']:
+                    time.sleep(0.02)
+                if ARM['cancel']:
+                    ok = False; break
+            if not ok:
+                break
+    finally:
+        ARM.update(running=False, idx=-1,
+                   msg='จบชุดท่า' if ok else ('หยุดแล้ว' if ARM['cancel'] else 'ส่งคำสั่งไม่สำเร็จ (บอร์ดหลุด?)'))
+        LINK.log(f'แขนกล: {ARM["msg"]}')
+
+
+def arm_load():
+    try:
+        with open(ARM_FILE, encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {'sets': {}}
+
+
+def _num(v, default):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return float(default)
+
+
+def arm_clean_pose(p):
+    if not isinstance(p, dict):
+        p = {}
+    raw = p.get('a') if isinstance(p.get('a'), list) else []
+    a = [max(0.0, min(180.0, _num(x, 90))) for x in (raw + [90, 90, 90])[:3]]
+    return {'name': str(p.get('name', ''))[:40], 'a': a,
+            'move_ms': int(max(0, min(10000, _num(p.get('move_ms'), 500)))),
+            'hold_ms': int(max(0, min(10000, _num(p.get('hold_ms'), 300))))}
+
+
 def poller():
     """อ่านสถานะสดทุก 0.3 วินาที (หยุดระหว่างทดสอบ step)"""
     n = 0
@@ -785,6 +875,17 @@ class Handler(BaseHTTPRequestHandler):
                 return self._reply(200, cfg_read())
             except OSError as e:
                 return self._reply(500, {'msg': f'อ่าน config ไม่ได้: {e}'})
+        if path == '/api/arm':
+            return self._reply(200, {**arm_load(), 'state': {k: ARM[k] for k in ('cur', 'running', 'idx', 'loop', 'loops', 'msg')}})
+        if path == '/api/arm/presets':
+            try:
+                with open(ARM_PRESETS, encoding='utf-8') as f:
+                    pr = json.load(f)
+                poses = [arm_clean_pose({'name': k, 'a': v}) for k, v in pr.items()
+                         if not k.startswith('_') and isinstance(v, list) and len(v) >= 2]
+                return self._reply(200, {'ok': True, 'poses': poses, 'file': ARM_PRESETS})
+            except (OSError, ValueError) as e:
+                return self._reply(200, {'ok': False, 'msg': f'อ่าน {ARM_PRESETS} ไม่ได้: {e}'})
         if path == '/api/job':
             return self._reply(200, {k: v for k, v in JOB.items() if k != 'proc'})
         if path == '/api/ros':
@@ -811,6 +912,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._reply(400, {'msg': 'ข้อมูลไม่ถูกต้อง'})
         path = self.path.split('?')[0]
         if path == '/api/connect':
+            ARM['cur'] = None
             ok, msg = LINK.connect()
             LINK.state['msg'] = msg
             return self._reply(200, {'ok': ok, 'msg': msg})
@@ -823,6 +925,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._reply(400, {'ok': False, 'msg': 'คำสั่งไม่อยู่ในรายการที่อนุญาต'})
             if LINK.state['busy']:
                 return self._reply(409, {'ok': False, 'msg': 'กำลังทดสอบ step อยู่'})
+            if line.startswith('@SERVOOFF'):
+                ARM['cur'] = None      # ปล่อย servo แล้ว ไม่รู้มุมจริง
             r = LINK.command(line)
             return self._reply(200, {'ok': r is not None and not r.startswith('ERR'), 'reply': r,
                                      'pid': LINK.state['pid']})
@@ -910,9 +1014,55 @@ class Handler(BaseHTTPRequestHandler):
             if first:   # กดครั้งแรก: ส่งทันที ไม่รอรอบ 0.1 วิ
                 LINK.command(f'@MOTOR {l} {r}', ('OK', 'ERR'), 0.3); MOTOR['on'] = True
             return self._reply(200, {'ok': True})
+        if path == '/api/arm/save':
+            name = str(d.get('name', '')).strip()[:40]
+            if not name:
+                return self._reply(400, {'ok': False, 'msg': 'ตั้งชื่อชุดท่าก่อน'})
+            data = arm_load()
+            data.setdefault('sets', {})[name] = {'mode': 'seq' if d.get('mode') == 'seq' else 'together',
+                                                 'poses': [arm_clean_pose(p) for p in d.get('poses', [])][:50],
+                                                 'saved': time.strftime('%Y-%m-%d %H:%M')}
+            tmp = ARM_FILE + '.tmp'
+            with open(tmp, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=1)
+            os.replace(tmp, ARM_FILE)
+            LINK.log(f'แขนกล: บันทึกชุด "{name}" ({len(data["sets"][name]["poses"])} ท่า)')
+            return self._reply(200, {'ok': True, 'file': ARM_FILE})
+        if path == '/api/arm/delete':
+            data = arm_load(); name = str(d.get('name', ''))
+            if name in data.get('sets', {}):
+                del data['sets'][name]
+                with open(ARM_FILE, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False, indent=1)
+            return self._reply(200, {'ok': True})
+        if path in ('/api/arm/go', '/api/arm/run'):
+            if not LINK.state['connected']:
+                return self._reply(200, {'ok': False, 'msg': 'ยังไม่เชื่อมต่อบอร์ด'})
+            if LINK.state['busy'] or ARM['running']:
+                return self._reply(409, {'ok': False, 'msg': 'แขนกลกำลังทำท่าอยู่ / บอร์ดไม่ว่าง'})
+            mode = 'seq' if d.get('mode') == 'seq' else 'together'
+            if path.endswith('go'):
+                p = arm_clean_pose(d)
+                ARM.update(running=True, cancel=False, idx=-1)
+                try:
+                    ok = arm_move(p['a'], p['move_ms'], mode) if p['move_ms'] > 0 else arm_send(p['a'])
+                finally:
+                    ARM['running'] = False
+                return self._reply(200, {'ok': ok, 'cur': ARM['cur']})
+            poses = [arm_clean_pose(p) for p in d.get('poses', [])][:50]
+            if not poses:
+                return self._reply(400, {'ok': False, 'msg': 'ยังไม่มีท่า'})
+            loops = int(max(1, min(100, _num(d.get('loops'), 1))))
+            ARM['cancel'] = False
+            threading.Thread(target=arm_run, args=(poses, mode, loops), daemon=True).start()
+            LINK.log(f'แขนกล: รันชุดท่า {len(poses)} ท่า × {loops} รอบ ({"ทีละตัว" if mode == "seq" else "พร้อมกัน"})')
+            return self._reply(200, {'ok': True})
+        if path == '/api/arm/stop':
+            ARM['cancel'] = True
+            return self._reply(200, {'ok': True})
         if path == '/api/stopall':
             # ปุ่ม "หยุดทุกอย่าง": ยกเลิกงานยาว/ทดสอบ T + ส่ง @STOP ตรงถึงบอร์ดทันที (ไม่รอ lock — หยุด step กลางทางได้)
-            JOB['cancel'] = True; MOTOR['until'] = 0.0; MOTOR['stopseq'] = max(MOTOR['stopseq'], MOTOR.get('lastseq', -1))
+            JOB['cancel'] = True; ARM['cancel'] = True; MOTOR['until'] = 0.0; MOTOR['stopseq'] = max(MOTOR['stopseq'], MOTOR.get('lastseq', -1))
             sent = False
             if LINK.state['connected'] and LINK.ser is not None:
                 try:
