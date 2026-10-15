@@ -1,5 +1,5 @@
 {
- "_comment": "แคตตาล็อกเฟิร์มแวร์ — LotusBlocks (🔧 เฟิร์มแวร์) อ่านไฟล์นี้จาก GitHub · เพิ่มบอร์ดใหม่ = เพิ่มรายการใน boards",
+ "_comment": "แคตตาล็อกเฟิร์มแวร์ — LotusBlocks (🔧 เฟิร์มแวร์) อ่านไฟล์นี้จาก GitHub · เพิ่มบอร์ดใหม่ = เพิ่มรายการใน boards · เวอร์ชันใหม่ = เพิ่มรายการบนสุดของ versions (ตั้ง latest: true ตัวเดียว) พร้อม date / changes / warnings",
  "boards": {
   "lotusrosbot-esp32": {
    "name": "LotusRosBot — ESP32 DevKit + LotusRosDev Shield",
@@ -18,7 +18,234 @@
      "size": 502128,
      "status": "bench",
      "status_text": "ทดสอบบนโต๊ะแล้ว · ยังไม่ทดสอบวิ่งพื้น",
-     "notes": "lotusrosbot-esp32/v2026.10.14e/NOTES.md"
+     "notes": "lotusrosbot-esp32/v2026.10.14e/NOTES.md",
+     "date": "2026-10-14",
+     "git": "f253dd5",
+     "family": "LotusRosBot",
+     "node": "/lotusrosbot_base",
+     "changes": [
+      "PID ล้อ 4 / 2.0 / 0.1 เป็นค่าคอมไพล์ (ได้จาก autotune ล้อลอย)"
+     ],
+     "warnings": [
+      "ยังไม่ทดสอบวิ่งบนพื้น (T3 หมุน 360° · T4/T5 สี่เหลี่ยม · ภารกิจ)"
+     ],
+     "latest": true
+    },
+    {
+     "version": "v2026.07.17",
+     "file": "lotusrosbot-esp32/v2026.07.17/firmware.bin",
+     "sha256": "cd7a2ba1858d4182eb0ab2ad53c37eab0b7c94a6ec33d6f67bc9f2dd0fa7e13e",
+     "size": 906672,
+     "status": "legacy",
+     "status_text": "รุ่นเก่า · แบบเดิม linorobot2",
+     "notes": "lotusrosbot-esp32/v2026.07.17/NOTES.md",
+     "date": "2026-07-17",
+     "git": "cebb5ab",
+     "family": "linorobot2 (แบบเดิม)",
+     "node": "/linorobot_base_node",
+     "changes": [
+      "มอเตอร์ + ESP32 ชุดใหม่ 17 ก.ค. — CPR 958/925",
+      "ROS 2 Galactic",
+      "กันค่า PCNT ของ encoder ถูกเขียนทับ (PCNT clobber)"
+     ],
+     "warnings": [
+      "ไฟล์ใหญ่ ~907 KB เพราะลิงก์ไลบรารี WiFi ไว้ด้วย (แต่ต่อผ่านสาย USB)",
+      "ชื่อ node เป็น /linorobot_base_node — ใช้กับสคริปต์รุ่นก่อน 13 ต.ค. ได้ · ros_proof.sh รับทั้งสองชื่อ",
+      "ไม่มี yaw จาก ESP32 — ~/odom_tf_relay.py ต้องใช้ RELAY_YAW_SRC=gyro (โหมด fw จะไม่ได้มุม)",
+      "PID ล้อตามค่าคอมไพล์เดิม 0.35/0.40/0.10 (ยังไม่จูน)"
+     ]
+    },
+    {
+     "version": "v2026.10.12",
+     "file": "lotusrosbot-esp32/v2026.10.12/firmware.bin",
+     "sha256": "b678ca4bafcc8569000b354987c0d5074c9818bee3f285b74ede496cdace7c13",
+     "size": 907392,
+     "status": "legacy",
+     "status_text": "รุ่นเก่า · แบบเดิม linorobot2",
+     "notes": "lotusrosbot-esp32/v2026.10.12/NOTES.md",
+     "date": "2026-10-12",
+     "git": "24cac21",
+     "family": "linorobot2 (แบบเดิม)",
+     "node": "/linorobot_base_node",
+     "changes": [
+      "CALIB เมนู 7 Count ticks — หมุนล้อด้วยมือ 10 รอบ วัด CPR จริง",
+      "แสดงเวอร์ชันเฟิร์มแวร์บน OLED ตอนบูต",
+      "โหมด ROS 2 เหมือน v2026.07.17 ทุกอย่าง (topic / QoS / ชื่อ node / timeout)"
+     ],
+     "warnings": [
+      "ชื่อ node เป็น /linorobot_base_node — ใช้กับสคริปต์รุ่นก่อน 13 ต.ค. ได้ · ros_proof.sh รับทั้งสองชื่อ",
+      "ไม่มี yaw จาก ESP32 — ~/odom_tf_relay.py ต้องใช้ RELAY_YAW_SRC=gyro (โหมด fw จะไม่ได้มุม)",
+      "PID ล้อตามค่าคอมไพล์เดิม 0.35/0.40/0.10 (ยังไม่จูน)"
+     ]
+    },
+    {
+     "version": "v2026.10.12b",
+     "file": "lotusrosbot-esp32/v2026.10.12b/firmware.bin",
+     "sha256": "aab78cfc8009f1d73524ca21c892a0390b375b28ee69a3892156281906ded716",
+     "size": 443408,
+     "status": "legacy",
+     "status_text": "รุ่นเก่า · แบบเดิม linorobot2",
+     "notes": "lotusrosbot-esp32/v2026.10.12b/NOTES.md",
+     "date": "2026-10-12",
+     "git": "d616745",
+     "family": "linorobot2 (แบบเดิม)",
+     "node": "/linorobot_base_node",
+     "changes": [
+      "build แบบ USB serial อย่างเดียว ไม่ลิงก์ WiFi — flash 900 → 443 KB, RAM 71 → 49 KB"
+     ],
+     "warnings": [
+      "ชื่อ node เป็น /linorobot_base_node — ใช้กับสคริปต์รุ่นก่อน 13 ต.ค. ได้ · ros_proof.sh รับทั้งสองชื่อ",
+      "ไม่มี yaw จาก ESP32 — ~/odom_tf_relay.py ต้องใช้ RELAY_YAW_SRC=gyro (โหมด fw จะไม่ได้มุม)",
+      "PID ล้อตามค่าคอมไพล์เดิม 0.35/0.40/0.10 (ยังไม่จูน)"
+     ]
+    },
+    {
+     "version": "v2026.10.12c",
+     "file": "lotusrosbot-esp32/v2026.10.12c/firmware.bin",
+     "sha256": "7ee5c7138927eddc3826a667ce2e13834b60075fa80c1d9f0bb60f1c3d59efa8",
+     "size": 455776,
+     "status": "legacy",
+     "status_text": "รุ่นเก่า · แบบเดิม linorobot2",
+     "notes": "lotusrosbot-esp32/v2026.10.12c/NOTES.md",
+     "date": "2026-10-12",
+     "git": "b813902",
+     "family": "linorobot2 (แบบเดิม)",
+     "node": "/linorobot_base_node",
+     "changes": [
+      "แสดง SSID / รหัส / IP ของ Jetson บน OLED (รับจาก lotus_netinfo ทาง USB)",
+      "CALIB เมนู 8 Network info"
+     ],
+     "warnings": [
+      "ชื่อ node เป็น /linorobot_base_node — ใช้กับสคริปต์รุ่นก่อน 13 ต.ค. ได้ · ros_proof.sh รับทั้งสองชื่อ",
+      "ไม่มี yaw จาก ESP32 — ~/odom_tf_relay.py ต้องใช้ RELAY_YAW_SRC=gyro (โหมด fw จะไม่ได้มุม)",
+      "PID ล้อตามค่าคอมไพล์เดิม 0.35/0.40/0.10 (ยังไม่จูน)"
+     ]
+    },
+    {
+     "version": "v2026.10.12d",
+     "file": "lotusrosbot-esp32/v2026.10.12d/firmware.bin",
+     "sha256": "a6e5dcb82d3f7d18a6b2eab7624a857fe2f534b53f3c2193c4dab760901f8ebf",
+     "size": 457136,
+     "status": "legacy",
+     "status_text": "รุ่นเก่า · แบบเดิม linorobot2",
+     "notes": "lotusrosbot-esp32/v2026.10.12d/NOTES.md",
+     "date": "2026-10-12",
+     "git": "225f32b",
+     "family": "linorobot2 (แบบเดิม)",
+     "node": "/linorobot_base_node",
+     "changes": [
+      "CALIB เมนู 9 SSH login — แสดงคำสั่ง ssh user@ip + user/รหัสของ Jetson"
+     ],
+     "warnings": [
+      "ชื่อ node เป็น /linorobot_base_node — ใช้กับสคริปต์รุ่นก่อน 13 ต.ค. ได้ · ros_proof.sh รับทั้งสองชื่อ",
+      "ไม่มี yaw จาก ESP32 — ~/odom_tf_relay.py ต้องใช้ RELAY_YAW_SRC=gyro (โหมด fw จะไม่ได้มุม)",
+      "PID ล้อตามค่าคอมไพล์เดิม 0.35/0.40/0.10 (ยังไม่จูน)"
+     ]
+    },
+    {
+     "version": "v2026.10.13a",
+     "file": "lotusrosbot-esp32/v2026.10.13a/firmware.bin",
+     "sha256": "75dc3d4bfa1f92d7bedae8594447caac31ec35e8aac4629fa3741eeab7b46fa6",
+     "size": 457232,
+     "status": "legacy",
+     "status_text": "รุ่นเก่า · แบบเดิม linorobot2",
+     "notes": "lotusrosbot-esp32/v2026.10.13a/NOTES.md",
+     "date": "2026-10-13",
+     "git": "147d440",
+     "family": "linorobot2 (แบบเดิม)",
+     "node": "/linorobot_base_node",
+     "changes": [
+      "OLED แสดงข้อมูลเครือข่ายเฉพาะเมื่อได้รับทาง USB จริง",
+      "netinfo ส่งเป็นระยะโดยไม่แตะขา DTR/RTS (แก้ ESP32 รีเซ็ต/บี๊บเอง)"
+     ],
+     "warnings": [
+      "ชื่อ node เป็น /linorobot_base_node — ใช้กับสคริปต์รุ่นก่อน 13 ต.ค. ได้ · ros_proof.sh รับทั้งสองชื่อ",
+      "ไม่มี yaw จาก ESP32 — ~/odom_tf_relay.py ต้องใช้ RELAY_YAW_SRC=gyro (โหมด fw จะไม่ได้มุม)",
+      "PID ล้อตามค่าคอมไพล์เดิม 0.35/0.40/0.10 (ยังไม่จูน)"
+     ]
+    },
+    {
+     "version": "v2026.10.14a",
+     "file": "lotusrosbot-esp32/v2026.10.14a/firmware.bin",
+     "sha256": "14654db942f21ad576f6a173a74282bf7d7be2a7cb42e4d937095eaf2f7703ba",
+     "size": 457840,
+     "status": "legacy",
+     "status_text": "รุ่นเก่า · linorobot2 รุ่นสุดท้าย",
+     "notes": "lotusrosbot-esp32/v2026.10.14a/NOTES.md",
+     "date": "2026-10-13",
+     "git": "851100c",
+     "family": "linorobot2 (แบบเดิม)",
+     "node": "/linorobot_base_node",
+     "changes": [
+      "ESP32 รวม gyro z เป็นมุม yaw 50 Hz ส่งใน /imu/data.orientation (ป้าย cov[8]=0.0004) + ค่าเฉลี่ย yaw rate",
+      "เป็นตัวเดียวกับที่ FW_OLD=1 bash tools/flash.sh สร้าง (md5 cd739301…) — git tag fw-v2026.10.14a-before-lotusrosbot"
+     ],
+     "warnings": [
+      "ชื่อ node เป็น /linorobot_base_node — ใช้กับสคริปต์รุ่นก่อน 13 ต.ค. ได้ · ros_proof.sh รับทั้งสองชื่อ",
+      "PID ล้อตามค่าคอมไพล์เดิม 0.35/0.40/0.10 (ยังไม่จูน)"
+     ]
+    },
+    {
+     "version": "v2026.10.14b",
+     "file": "lotusrosbot-esp32/v2026.10.14b/firmware.bin",
+     "sha256": "d52665eba7183d4e3955f4404d1bc3837120afc0ee636417e50187fc9db56813",
+     "size": 464256,
+     "status": "old",
+     "status_text": "รุ่นเก่า · LotusRosBot",
+     "notes": "lotusrosbot-esp32/v2026.10.14b/NOTES.md",
+     "date": "2026-10-13",
+     "git": "6946f64",
+     "family": "LotusRosBot",
+     "node": "/lotusrosbot_base",
+     "changes": [
+      "เปลี่ยนชื่อเป็น LotusRosBot — จัดโค้ดเป็นโมดูล ros_link / base / heading / sensors / actuators / display / netinfo / calib",
+      "ชื่อ node ใหม่ /lotusrosbot_base (topic / type / QoS เท่าเดิม ตรวจด้วย snapshot แล้ว)",
+      "ตัดไลบรารีที่ไม่ใช้ออก (464 KB)"
+     ],
+     "warnings": [
+      "PID ล้อตามค่าคอมไพล์เดิม 0.35/0.40/0.10 (ยังไม่จูน)"
+     ]
+    },
+    {
+     "version": "v2026.10.14c",
+     "file": "lotusrosbot-esp32/v2026.10.14c/firmware.bin",
+     "sha256": "897d3a7e79ba5a18992e51ab484499c411a650a562d151cd70b2634aa9cda2f6",
+     "size": 501952,
+     "status": "old",
+     "status_text": "รุ่นเก่า · LotusRosBot",
+     "notes": "lotusrosbot-esp32/v2026.10.14c/NOTES.md",
+     "date": "2026-10-13",
+     "git": "70a052f",
+     "family": "LotusRosBot",
+     "node": "/lotusrosbot_base",
+     "changes": [
+      "โหมดคาลิเบรตสั่งจากเว็บได้ (คำสั่ง @ ทาง USB) — ใช้คู่กับหน้า lrb_calib_web :8091",
+      "เก็บค่า PID ไว้ใน NVS ของบอร์ด (ปรับจากเว็บแล้วจำค่าได้)",
+      "PID มี anti-windup",
+      "OLED เมนู 10 ทดสอบ PID แบบ step"
+     ],
+     "warnings": [
+      "PID เริ่มต้นตามค่าคอมไพล์ 0.35/0.40/0.10 ถ้ายังไม่เคยบันทึกค่าลง NVS"
+     ]
+    },
+    {
+     "version": "v2026.10.14d",
+     "file": "lotusrosbot-esp32/v2026.10.14d/firmware.bin",
+     "sha256": "e141de8bd06f1693a53d055c680afa28300a4db526fe42f3bb7b7eb5a558b27a",
+     "size": 502128,
+     "status": "old",
+     "status_text": "รุ่นเก่า · LotusRosBot",
+     "notes": "lotusrosbot-esp32/v2026.10.14d/NOTES.md",
+     "date": "2026-10-13",
+     "git": "db9bbe3",
+     "family": "LotusRosBot",
+     "node": "/lotusrosbot_base",
+     "changes": [
+      "โหมด coast (ปล่อยล้อฟรี) สำหรับหมุนล้อนับรอบด้วยมือ — เมนู 7 และหน้าเว็บ"
+     ],
+     "warnings": [
+      "PID เริ่มต้นตามค่าคอมไพล์ 0.35/0.40/0.10 ถ้ายังไม่เคยบันทึกค่าลง NVS"
+     ]
     }
    ]
   }
